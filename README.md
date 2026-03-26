@@ -1,6 +1,6 @@
 # Symplectic-CHP
 
-A Haskell implementation of the CHP (Clifford-Hybrid-Pauli) stabilizer quantum simulator, **reconstructed through symplectic geometry**.
+A Haskell implementation of the CHP clifford simulator, **reconstructed through symplectic geometry**.
 
 ## Overview
 
