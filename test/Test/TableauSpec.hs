@@ -49,7 +49,7 @@ spec = describe "SymplecticCHP.Tableau" $ do
           let tab = emptyTableau n
               stab i = rows tab !! i
               -- FIX: Use 'and' with list of Bools, not ==>
-              allCommute = and [ i == j || symplecticForm (stab i) (stab j)
+              allCommute = and [ i == j || commute (stab i) (stab j)
                                | i <- [0..n-1], j <- [0..n-1] ]
           in allCommute === True
     
@@ -61,8 +61,8 @@ spec = describe "SymplecticCHP.Tableau" $ do
               destab i = rows tab !! (i + n)
               -- FIX: Use if-then-else inside list comprehension, not ==>
               correctPairing = and 
-                [ if i == j then omega (destab i) (stab j) == 1
-                            else symplecticForm (destab i) (stab j)
+                [ if i == j then anticommute (destab i) (stab j)
+                            else commute (destab i) (stab j)
                 | i <- [0..n-1], j <- [0..n-1] ]
           in correctPairing === True
 
@@ -104,18 +104,23 @@ spec = describe "SymplecticCHP.Tableau" $ do
   describe "Tableau validity preservation" $ do
     it "remains valid after single-qubit gates" $ do
       property $ \(SmallN n) (q :: Int) ->
-        n > 0 && q >= 0 && q < n ==>
-          let tab0 = emptyTableau n
-              tabH = evolveTableau tab0 (Local (Hadamard q))
-              tabS = evolveTableau tabH (Local (Phase q))
-          in isValid tabH .&&. isValid tabS
-    
+        let q' = q `mod` max 1 n  -- Ensure 0 <= q' < n
+        in n > 0 ==>
+            let tab0 = emptyTableau n
+                tabH = evolveTableau tab0 (Local (Hadamard q'))
+                tabS = evolveTableau tabH (Local (Phase q'))
+            in isValid tabH .&&. isValid tabS
+
+
     it "remains valid after CNOT" $ do
-      property $ \(SmallN n) (c :: Int) (t :: Int) ->
-        n > 1 && c >= 0 && c < n && t >= 0 && t < n && c /= t ==>
-          let tab0 = emptyTableau n
-              tab' = evolveTableau tab0 (CNOT c t)
-          in isValid tab'
+      property $ \(SmallN n) (cRaw :: Int) (tRaw :: Int) ->
+        let n' = max 2 n
+            c = cRaw `mod` n'
+            t = tRaw `mod` n'
+        in c /= t ==>
+            let tab0 = emptyTableau n'
+                tab' = evolveTableau tab0 (CNOT c t)
+            in isValid tab'
 
   -- describe "Generate function" $ do
   --   it "produces list of correct length" $ do

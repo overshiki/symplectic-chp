@@ -38,22 +38,21 @@ spec = describe "SymplecticCHP.Measurement" $ do
           product = multiply stab0 stab1
       isDeterminate tab product `shouldBe` True
 
-  describe "findAntiCommutingDestab" $ do
-    it "finds destabilizer for X on |0>" $ do
+  describe "findAntiCommutingStab" $ do
+    it "finds stabilizer for X on |0>" $ do
       let tab = emptyTableau 1
-          result = findAntiCommutingDestab tab (pauliX 0)
-      result `shouldBe` Just 0  -- D_0 = X_0 anti-commutes with Z_0
+          result = findAntiCommutingStab tab (pauliX 0)
+      result `shouldBe` Just 0  -- S_0 = Z_0 anti-commutes with X_0
     
     it "returns Nothing for Z on |0>" $ do
       let tab = emptyTableau 1
-          result = findAntiCommutingDestab tab (pauliZ 0)
-      result `shouldBe` Nothing  -- Z commutes with everything
+          result = findAntiCommutingStab tab (pauliZ 0)
+      result `shouldBe` Nothing  -- Z_0 = S_0 commutes with itself
     
-    it "returns Nothing for stabilizer" $ do
-      let n = 4
-          tab = emptyTableau n
-          stab = rows tab !! 1  -- Z_1
-      findAntiCommutingDestab tab stab `shouldBe` Nothing
+    it "returns Nothing for identity" $ do
+      let tab = emptyTableau 2
+          result = findAntiCommutingStab tab (Pauli 0 0 0)
+      result `shouldBe` Nothing
 
   describe "Measurement outcomes" $ do
     it "deterministic Z measurement gives +1 on |0>" $ do
@@ -87,17 +86,17 @@ spec = describe "SymplecticCHP.Measurement" $ do
       isValid tab1 `shouldBe` True
     
     it "measurement preserves number of qubits" $ do
-      property $ \(n :: Int) ->
-        n > 0 && n <= 5 ==>
-          ioProperty $ do
-            let tab0 = emptyTableau n
-            (tab1, _) <- measure tab0 (pauliX 0)
-            return $ nQubits tab1 === n
-    
+      property $ \(Positive n') ->
+        let n = n' `mod` 5 + 1  -- Ensure 1-5 range
+        in ioProperty $ do
+          let tab0 = emptyTableau n
+          (tab1, _) <- measure tab0 (pauliX 0)
+          return $ nQubits tab1 === n
+
     it "measurement preserves tableau validity" $ do
-      property $ \(n :: Int) ->
-        n > 0 && n <= 5 ==>
-          ioProperty $ do
+      property $ \(Positive n') ->
+        let n = n' `mod` 5 + 1  -- Ensure 1-5 range
+        in ioProperty $ do
             let tab0 = emptyTableau n
                 p = Pauli (bit 0) 0 0  -- X_0
             (tab1, _) <- measure tab0 p

@@ -63,20 +63,30 @@ spec = describe "SymplecticCHP.Utils" $ do
             updates' = [(i `mod` 40, v) | (i, v) <- take 10 updates, let ii = i `mod` 40, ii >= 0]
             xs'' = xs' // updates'
         in xs'' // updates' === xs''
-    
+
     it "lookup finds updated values correctly" $ do
-      property $ \xs updates (idx :: Int) -> 
-        let xs' :: [Int]
-            xs' = take 20 xs
-            len = length xs'
-            updates' :: [(Int, Int)]
-            updates' = [(i `mod` max 1 len, v) | (i, v) <- take 10 updates, let ii = i `mod` max 1 len, ii >= 0]
-            result = xs' // updates'
-            i = idx `mod` max 1 (length xs')
-        in case lookup i updates' of
-             Just v  -> result L.!! i === v
-             Nothing -> result L.!! i === (xs' L.!! i)
-    
+        property $ \xs updates (idx :: Int) -> 
+            let xs' :: [Int]
+                xs' = take 20 xs
+                len = length xs'
+            in len > 0 ==>  -- GUARD: ensure non-empty list
+                let -- Normalize indices to valid range [0, len-1]
+                    updatesNorm = [(i `mod` len, v) | (i, v) <- take 10 updates]
+                    
+                    -- Build effective update map: for each index, find LAST value
+                    -- This MUST match what (//) does internally
+                    effectiveValue i = 
+                        case [v | (ii, v) <- reverse updatesNorm, ii == i] of
+                            (v:_) -> Just v   -- first in reversed = last in original
+                            []    -> Nothing
+                    
+                    result = xs' // updatesNorm
+                    i = idx `mod` len
+                    
+                in case effectiveValue i of
+                      Just v  -> result L.!! i === v
+                      Nothing -> result L.!! i === (xs' L.!! i)
+
     it "later updates override earlier ones" $ do
       property $ \xs -> 
         let xs' :: [Int]

@@ -53,10 +53,17 @@ symplecticForm :: Pauli -> Pauli -> Bool
 symplecticForm (Pauli x1 z1 _) (Pauli x2 z2 _) = 
   even (popCount ((x1 .&. z2) `xor` (z1 .&. x2)))
 
--- | ω(v1, v2) ∈ {0,1} as integer
-omega :: Pauli -> Pauli -> Int
-omega (Pauli x1 z1 _) (Pauli x2 z2 _) = 
-  popCount ((x1 .&. z2) `xor` (z1 .&. x2)) `mod` 2
+-- | Check if two Paulis commute (wrapper for clarity)
+commute :: Pauli -> Pauli -> Bool
+commute = symplecticForm
+
+anticommute :: Pauli -> Pauli -> Bool
+anticommute p1 p2 = not $ symplecticForm p1 p2
+
+-- -- | ω(v1, v2) ∈ {0,1} as integer
+-- omega :: Pauli -> Pauli -> Int
+-- omega (Pauli x1 z1 _) (Pauli x2 z2 _) = 
+--   popCount ((x1 .&. z2) `xor` (z1 .&. x2)) `mod` 2
 
 -- | Pauli group multiplication with phase tracking
 multiply :: Pauli -> Pauli -> Pauli
@@ -96,8 +103,11 @@ emptyTableau n = Tableau n $ generate (2*n) $ \i ->
 -- | Verify isotropic condition: all stabilizers commute
 isValid :: Tableau -> Bool
 isValid (Tableau n rs) = 
-  all (\i -> all (\j -> symplecticForm (rs V.!! i) (rs V.!! j)) [0..n-1]) [0..n-1]
-  && all (\i -> omega (rs V.!! (i+n)) (rs V.!! i) == 1) [0..n-1]  -- Dual pairing
+  all (\i -> all (\j -> commute (rs V.!! i) (rs V.!! j)) [0..n-1]) [0..n-1]
+  && all (\i -> anticommute (rs V.!! (i+n)) (rs V.!! i)) [0..n-1]  
+    -- Dual pairing
+  && all (\i -> all (\j -> commute (rs V.!! i) (rs V.!! j)) [n..2*n-1]) [n..2*n-1] 
+    -- destabilizer also commute with each other
 
 -- ============================================================================
 -- Clifford Group as Sp(2n, F_2)
@@ -121,10 +131,13 @@ data SymplecticGate
 -- | Apply symplectic gate to Pauli operator (conjugation P ↦ U P U†)
 applyGate :: SymplecticGate -> Pauli -> Pauli
 applyGate (Local (Hadamard i)) (Pauli x z r) =
-  let xi = testBit x i; zi = testBit z i
-      x' = if xi then clearBit z i else if zi then setBit z i else z
-      z' = if zi then clearBit x i else if xi then setBit x i else x
-      -- Phase: H X H† = Z, H Z H† = X, H Y H† = -Y
+  let xi = testBit x i
+      zi = testBit z i
+      -- CORRECT bit swap using mask
+      mask = complement (bit i)
+      x' = (x .&. mask) .|. (if zi then bit i else 0)
+      z' = (z .&. mask) .|. (if xi then bit i else 0)
+      -- Phase: flip by 2 (add -1) if Y operator
       r' = (r + if xi && zi then 2 else 0) `mod` 4
   in Pauli x' z' r'
 
@@ -165,12 +178,13 @@ data MeasurementResult = Determinate Bool | Random Bool
 -- | Test if measurement is deterministic: P must commute with stabilizer subspace
 isDeterminate :: Tableau -> Pauli -> Bool
 isDeterminate (Tableau n rs) p = 
-  all (\i -> symplecticForm p (rs V.!! i)) [0..n-1]
+  all (\i -> commute p (rs V.!! i)) [0..n-1]
 
--- | Find which destabilizer anti-commutes with P (for random case)
-findAntiCommutingDestab :: Tableau -> Pauli -> Maybe Int
-findAntiCommutingDestab (Tableau n rs) p =
-  case filter (\i -> not (symplecticForm p (rs V.!! (i+n)))) [0..n-1] of
+-- | Find stabilizer index j such that P anti-commutes with S_j
+-- Returns Nothing if P commutes with all stabilizers (determinate measurement)
+findAntiCommutingStab :: Tableau -> Pauli -> Maybe Int
+findAntiCommutingStab (Tableau n rs) p =
+  case filter (\i -> not (commute p (rs !! i))) [0..n-1] of
     []    -> Nothing
     (i:_) -> Just i
 
@@ -178,45 +192,137 @@ findAntiCommutingDestab (Tableau n rs) p =
 measure :: Tableau -> Pauli -> IO (Tableau, MeasurementResult)
 measure tab@(Tableau n rs) p
   | isDeterminate tab p = do
-      -- Deterministic: decompose P in stabilizer basis
-      -- P = (-1)^b ∏_i S_i^{a_i}, outcome = (-1)^b
-      let outcome = computePhase tab p  -- True = +1, False = -1
+      let outcome = computePhase tab p
       return (tab, Determinate outcome)
   
   | otherwise = do
-      -- Random: find anti-commuting destabilizer D_j
-      let Just j = findAntiCommutingDestab tab p
-          d_j = rs V.!! (j+n)  -- destabilizer D_j
-          s_j = rs V.!! j      -- old stabilizer S_j
+      let Just j = findAntiCommutingStab tab p
+          s_j = rs !! j        -- SAVE old stabilizer S_j
           
-          imap :: (Int -> a -> b) -> [a] -> [b]
-          imap f xs = map (\(i, x) -> f i x) (zip [0 .. length xs - 1] xs)
+          imap f xs = zipWith f [0..] xs
 
-          -- Update: make other stabilizers commute with new P
+          -- Correct update:
+          -- 1. S_k → S_k · s_j for k≠j where P anti-commutes with S_k
+          -- 2. D_j → s_j (old stabilizer becomes new destabilizer)
+          -- 3. S_j → p' (new stabilizer with phase)
           rs' = imap (\i row ->
-            if i < n && i /= j && not (symplecticForm p (rs V.!! i))
-              then multiply row d_j  -- S_i ↦ S_i · D_j to restore [S_i, P] = 0
-              else if i == j then p else row) rs
+            if i == j
+              then p                    -- S_j = P (phase fixed below)
+            else if i == j + n
+              then s_j                  -- D_j = old S_j
+            else if i < n && not (commute p (rs !! i))
+              then multiply row s_j     -- S_k = S_k · S_j (OLD stabilizer!)
+              else row) rs
           
-      -- Random outcome ±1
-      outcome <- (== 1) <$> (randomRIO (0, 1) :: IO Int) 
-      let -- Update phase of new stabilizer based on outcome
-          Pauli x z r = p
-          p' = Pauli x z ((r + if outcome then 0 else 2) `mod` 4)
+      -- Random outcome
+      outcome <- randomRIO (0, 1) :: IO Int
+      
+      -- Phase: -1 outcome adds 2 to phase
+      let Pauli x z r = p
+          p' = Pauli x z ((r + if outcome == 0 then 2 else 0) `mod` 4)
           rs'' = rs' // [(j, p')]
       
-      return (Tableau n rs'', Random outcome)
+      return (Tableau n rs'', Random (outcome == 1))
+
+-- -- | Measurement as state update
+-- -- Returns updated tableau and measurement result
+-- measure :: Tableau -> Pauli -> IO (Tableau, MeasurementResult)
+-- measure tab@(Tableau n rs) p
+--   | isDeterminate tab p = do
+--       -- Deterministic: compute phase from decomposition
+--       let outcome = computePhase tab p  -- True = +1, False = -1
+--       return (tab, Determinate outcome)
+  
+--   | otherwise = do
+--       -- Random measurement: find anti-commuting stabilizer S_j
+--       let Just j = findAntiCommutingStab tab p
+--           d_j = rs !! (j + n)  -- corresponding destabilizer D_j
+          
+--           imap :: (Int -> a -> b) -> [a] -> [b]
+--           imap f xs = map (\(i, x) -> f i x) (zip [0 .. length xs - 1] xs)
+
+--           -- Update stabilizers that anti-commute with P (except S_j itself)
+--           -- Multiply them by D_j to make them commute with P
+--           rs' = imap (\i row ->
+--             if i < n && i /= j && not (commute p (rs !! i))
+--               then multiply row d_j  -- S_i ↦ S_i · D_j
+--               else if i == j 
+--                 then p                -- Replace S_j with P
+--                 else row) rs
+          
+--       -- Random outcome: +1 or -1
+--       outcome <- randomRIO (0, 1) :: IO Int
+      
+--       -- Update phase of new stabilizer based on outcome
+--       -- If outcome is -1, flip phase by adding 2 (mod 4)
+--       let Pauli x z r = p
+--           p' = Pauli x z ((r + if outcome == 1 then 0 else 2) `mod` 4)
+--           rs'' = rs' // [(j, p')]
+      
+--       return (Tableau n rs'', Random (outcome == 1))
+
+
+-- -- | Find which destabilizer anti-commutes with P (for random case)
+-- findAntiCommutingDestab :: Tableau -> Pauli -> Maybe Int
+-- findAntiCommutingDestab (Tableau n rs) p =
+--   case filter (\i -> not (commute p (rs V.!! (i+n)))) [0..n-1] of
+--     []    -> Nothing
+--     (i:_) -> Just i
+
+-- -- | Measurement as state update
+-- measure :: Tableau -> Pauli -> IO (Tableau, MeasurementResult)
+-- measure tab@(Tableau n rs) p
+--   | isDeterminate tab p = do
+--       -- Deterministic: decompose P in stabilizer basis
+--       -- P = (-1)^b ∏_i S_i^{a_i}, outcome = (-1)^b
+--       let outcome = computePhase tab p  -- True = +1, False = -1
+--       return (tab, Determinate outcome)
+  
+--   | otherwise = do
+--       -- Random: find anti-commuting destabilizer D_j
+--       let Just j = findAntiCommutingDestab tab p
+--           d_j = rs V.!! (j+n)  -- destabilizer D_j
+--           s_j = rs V.!! j      -- old stabilizer S_j
+          
+--           imap :: (Int -> a -> b) -> [a] -> [b]
+--           imap f xs = map (\(i, x) -> f i x) (zip [0 .. length xs - 1] xs)
+
+--           -- Update: make other stabilizers commute with new P
+--           rs' = imap (\i row ->
+--             if i < n && i /= j && not (commute p (rs V.!! i))
+--               then multiply row d_j  -- S_i ↦ S_i · D_j to restore [S_i, P] = 0
+--               else if i == j then p else row) rs
+          
+--       -- Random outcome ±1
+--       outcome <- (== 1) <$> (randomRIO (0, 1) :: IO Int) 
+--       let -- Update phase of new stabilizer based on outcome
+--           Pauli x z r = p
+--           p' = Pauli x z ((r + if outcome then 0 else 2) `mod` 4)
+--           rs'' = rs' // [(j, p')]
+      
+--       return (Tableau n rs'', Random outcome)
 
 -- | Compute deterministic measurement outcome via symplectic decomposition
 computePhase :: Tableau -> Pauli -> Bool
 computePhase (Tableau n rs) p = 
-  -- Use destabilizer basis to find coefficients
-  -- P = ∏_j D_j^{c_j} · (phase factor), extract phase from product
+  -- Accumulate product of stabilizers S_j where P anti-commutes with D_j
   let scratch = foldl (\acc j -> 
-        if omega p (rs V.!! (j+n)) == 1  -- if [P, D_j] ≠ 0, then P contains S_j
-          then multiply acc (rs V.!! j)
+        if anticommute p (rs !! (j+n))  -- [P, D_j] ≠ 0 means S_j is in decomposition
+          then multiply acc (rs !! j)
           else acc) (Pauli 0 0 0) [0..n-1]
-  in phase scratch `mod` 4 == 0  -- +1 if phase ≡ 0 (mod 4)
+      -- Total phase: P = ±(stabilizer product), so compare phases
+      totalPhase = (phase p - phase scratch) `mod` 4
+  in totalPhase == 0  -- +1 if phases match, -1 if differ by 2
+
+-- computePhase :: Tableau -> Pauli -> Bool
+-- computePhase (Tableau n rs) p = 
+--   -- Use destabilizer basis to find coefficients
+--   -- P = ∏_j D_j^{c_j} · (phase factor), extract phase from product
+--   let scratch = foldl (\acc j -> 
+--         if anticommute p (rs V.!! (j+n))  -- if [P, D_j] ≠ 0, then P contains S_j
+--           then multiply acc (rs V.!! j)
+--           else acc) (Pauli 0 0 0) [0..n-1]
+--   in phase scratch `mod` 4 == 0  -- +1 if phase ≡ 0 (mod 4)
 
 -- ============================================================================
 -- Monadic Interface
