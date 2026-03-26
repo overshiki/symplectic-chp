@@ -42,7 +42,7 @@ This basis is unique up to symplectic transformation, providing the coordinate-f
 
 Every Clifford gate induces a symplectic transformation on (𝔽₂)^(2n):
 
-| Gate | Action on (x|z) | Matrix in Sp(2n,𝔽₂) |
+| Gate | Action on (x\|z) | Matrix in Sp(2n,𝔽₂) |
 |------|-----------------|---------------------|
 | Hᵢ | swaps xᵢ ↔ zᵢ | off-diagonal swap |
 | Sᵢ | (xᵢ,zᵢ) ↦ (xᵢ,xᵢ+zᵢ) | shear transformation |
