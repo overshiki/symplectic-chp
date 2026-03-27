@@ -25,11 +25,14 @@ $$\omega(v, w) = -\omega(w, v) \quad \text{for all } v, w \in V$$
 An immediate consequence is that $\omega(v, v) = 0$ for all $v \in V$ —a 2-form vanishes on the diagonal, unlike an inner product which is typically positive definite.
 
 **Example 1.2 (The Standard Area Form).** On $V = \mathbb{R}^2$ , the form
+
 $$\omega((x_1, y_1), (x_2, y_2)) = x_1 y_2 - x_2 y_1 = \det\begin{pmatrix} x_1 & x_2 \\ y_1 & y_2 \end{pmatrix}$$
 computes the signed area of the parallelogram spanned by two vectors. This is the prototype of all symplectic forms.
 
 In coordinates, any 2-form can be expressed using the **wedge product**:
+
 $$\omega = \sum_{i;j} a_{ij} \, e^i \wedge e^j$$
+
 where $e^i$ are dual basis vectors and $a_{ij} = \omega(e_i, e_j) = -a_{ji}$ . The matrix representation $A$ of $\omega$ is always **skew-symmetric**: $A^T = -A$ .
 
 ---
@@ -49,9 +52,11 @@ A generic 2-form may vanish on certain subspaces. The symplectic condition rules
 The **non-degeneracy** condition is crucial. It states that the map $\tilde{\omega}: V \to V^*$ defined by $\tilde{\omega}(v)(w) = \omega(v,w)$ is an isomorphism. Geometrically, every non-zero vector $v$ has some "symplectic partner" $w$ with $\omega(v,w) \neq 0$ .
 
 **Example 2.2 (Standard Symplectic Form on $\mathbb{R}^{2n}$ ).** With coordinates $(q_1, \ldots, q_n, p_1, \ldots, p_n)$ :
+
 $$\omega = \sum_{i=1}^n dq_i \wedge dp_i$$
 
 For vectors $u = (q, p)$ and $v = (q', p')$ , this becomes:
+
 $$\omega(u,v) = q \cdot p' - p \cdot q' = u^T J v$$
 
 where $J = \begin{pmatrix} 0 & I_n \\ -I_n & 0 \end{pmatrix}$ is the **standard symplectic matrix**.
@@ -102,6 +107,7 @@ We proceed by induction on $\dim(V)$ .
 **Inductive step:** Assume $\dim(V) = m \gt 0$. By non-degeneracy, there exist vectors $e_1, f_1 \in V$ with $\omega(e_1, f_1) \neq 0$ . Rescaling $f_1$, we arrange $\omega(e_1, f_1) = 1$ .
 
 Let $W = \text{span}\{e_1, f_1\}$ . Define the symplectic complement:
+
 $$W^\omega = \{v \in V \mid \omega(v, w) = 0 \text{ for all } w \in W\}$$
 
 **Claim:** $V = W \oplus W^\omega$ .
@@ -111,6 +117,7 @@ $$W^\omega = \{v \in V \mid \omega(v, w) = 0 \text{ for all } w \in W\}$$
 - $0 = \omega(v, f_1) = \alpha \omega(e_1, f_1) = \alpha \Rightarrow \alpha = 0$
 
 Second, consider the map $\phi: V \to W^*$ defined by $\phi(v)(w) = \omega(v,w)$ . By rank-nullity:
+
 $$\dim(\ker \phi) = \dim(V) - \dim(\text{im } \phi) = \dim(V) - \dim(W) = m - 2$$
 
 But $\ker \phi = W^\omega$, so $\dim(W^\omega) = m - 2$. Thus $\dim(W) + \dim(W^\omega) = m = \dim(V)$, giving the direct sum decomposition. ∎
@@ -122,6 +129,7 @@ By induction, $W^\omega$ has a symplectic basis $\{e_2, \ldots, e_n, f_2, \ldots
 ### Corollaries
 
 1. **Normal Form:** In a symplectic basis, the matrix of $\omega$ is the standard symplectic matrix:
+
    $$[\omega] = J = \begin{pmatrix} 0 & I_n \\ -I_n & 0 \end{pmatrix}$$
 
 2. **Uniqueness up to isomorphism:** All symplectic vector spaces of dimension $2n$ are isomorphic to $(\mathbb{F}^{2n}, \omega_{\text{std}})$.
@@ -138,11 +146,12 @@ We now shift to quantum information theory, where the abstract machinery develop
 
 The **Pauli group** $\mathcal{P}_n$ on $n$ qubits consists of all $n$ -fold tensor products of single-qubit Pauli matrices $\{I, X, Y, Z\}$ with phases $\{\pm 1, \pm i\}$ :
 
-$$\mathcal{P}_n = \left\{ i^k P_1 \otimes \cdots \otimes P_n \mid k \in \{0,1,2,3\}, P_j \in \{I, X, Y, Z\} \right\}$$
+$$\mathcal{P}_n = \left \{ i^k P_1 \otimes \cdots \otimes P_n \mid k \in \{0,1,2,3\}, P_j \in \{I, X, Y, Z\} \right \}$$
 
 The group has order $|\mathcal{P}_n| = 4^{n+1}$. Its center is $Z(\mathcal{P}_n) = \{\pm I, \pm iI\}$ .
 
 > ⏣**Sidenote:** The center of a group $G$ is the set of elements that commute with every element:
+
 > $$Z(G) = \{z \in G \mid zg = gz \text{ for all } g \in G\}$$
 > 
 > For the Pauli group, only the global phases $\{\pm I, \pm iI\}$ satisfy this.
@@ -169,6 +178,7 @@ The full vector is $v_P = (x|z) \in \mathbb{F}_2^{2n}$ .
 ### 3. The Symplectic Inner Product
 
 **Theorem.** Define $\omega: \mathbb{F}_2^{2n} \times \mathbb{F}_2^{2n} \to \mathbb{F}_2$ by:
+
 $$\omega(v_P, v_Q) = x_P \cdot z_Q + x_Q \cdot z_P \pmod{2}$$
 
 Then:
@@ -182,6 +192,7 @@ Moreover, $\omega$ is a **symplectic form** on $\mathbb{F}_2^{2n}$ .
 For non-degeneracy: if $\omega((x|z), (x'|z')) = 0$ for all $(x'|z')$ , then $x \cdot z' + x' \cdot z = 0$ for all $x', z'$ . Taking $x' = 0$ shows $x = 0$ ; taking $z' = 0$ shows $z = 0$ . Thus $(x|z) = 0$ . ∎
 
 **Matrix Form.** Using $\Lambda = \begin{pmatrix} 0 & I_n \\ I_n & 0 \end{pmatrix}$ :
+
 $$\omega(u,v) = u^T \Lambda v \pmod{2}$$
 
 Note that over $\mathbb{F}_2$ , $\Lambda^T = \Lambda$ (since $-1 = 1$ ), consistent with skew-symmetry.
@@ -226,6 +237,7 @@ A **stabilizer code** is defined by an abelian subgroup $\mathcal{S} \subset \ma
 - **Parameters:** If $|\mathcal{S}| = 2^{n-k}$ , then $\dim(\mathcal{C}) = 2^k$ , encoding $k$ logical qubits into $n$ physical qubits
 
 **Symplectic Interpretation.** The stabilizer group corresponds to an **isotropic subspace** $L_{\mathcal{S}} \subset \mathbb{F}_2^{2n}$ :
+
 $$\omega(s_i, s_j) = 0 \text{ for all stabilizer generators } s_i, s_j$$
 
 This is the condition that all stabilizer generators **commute**.
@@ -233,9 +245,11 @@ This is the condition that all stabilizer generators **commute**.
 ### 2. The Destabilizer Group
 
 Given stabilizer generators $\{S_1, \ldots, S_{n-k}\}$ , the **destabilizer group** $\mathcal{D}$ has generators $\{D_1, \ldots, D_{n-k}\}$ satisfying:
+
 $$D_i S_j D_i^\dagger = (-1)^{\delta_{ij}} S_j$$
 
 In symplectic terms:
+
 $$\omega(d_i, s_j) = \delta_{ij}$$
 
 The destabilizer generators form an isotropic subspace $L_{\mathcal{D}}$ that is **symplectically paired** with $L_{\mathcal{S}}$ .
@@ -249,6 +263,7 @@ The remaining $2k$ dimensions of $\mathbb{F}_2^{2n}$ accommodate **logical opera
 with symplectic pairing $\omega(\bar{x}_i, \bar{z}_j) = \delta_{ij}$.
 
 **Symplectic Decomposition:**
+
 $$\mathbb{F}_2^{2n} = L_{\mathcal{S}} \oplus L_{\mathcal{D}} \oplus L_{\bar{\mathcal{X}}} \oplus L_{\bar{\mathcal{Z}}}$$
 
 Dimensions: $(n-k) + (n-k) + k + k = 2n$ ✓ -->
@@ -274,6 +289,7 @@ The stabilizer-destabilizer structure emerges directly from the **symplectic bas
 **Key Observation:** The destabilizer generators $\{d_1, \ldots, d_m\}$ form an **isotropic subspace**—they commute with each other: $[D_i, D_j] = 0$ . This follows from $\omega(d_i, d_j) = 0$ , a property not explicitly stated in standard CHP treatments.
 
 This yields the decomposition:
+
 $$\mathbb{F}_2^{2n} = L_{\mathcal{S}} \oplus L_{\mathcal{D}} \oplus W$$
 
 where $W = (L_{\mathcal{S}} \oplus L_{\mathcal{D}})^\omega$ is the remaining symplectic subspace with $\dim(W) = 2n - 2m$ .
@@ -367,6 +383,7 @@ Remove one pair, e.g.:
 **Code distance:** $d$ equals the minimum length of nontrivial logical strings—here the lattice dimension.
 
 **Symplectic Verification:**
+
 $$\mathbb{F}_2^{2n} = \underbrace{L_{\mathcal{S}}'}_{n-1} \oplus \underbrace{L_{\mathcal{D}}'}_{n-1} \oplus \underbrace{\text{span}\{s_1\}}_{\bar{X}} \oplus \underbrace{\text{span}\{d_1\}}_{\bar{Z}}$$
 
 The promoted pair $(s_1, d_1)$, previously enforcing a constraint, now encodes one logical qubit. Removing $k$ such pairs yields a $[[n,k,d]]$ code.
