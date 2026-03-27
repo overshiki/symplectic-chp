@@ -26,7 +26,11 @@ An immediate consequence is that $\omega(v, v) = 0$ for all $v \in V$ —a 2-for
 
 **Example 1.2 (The Standard Area Form).** On $V = \mathbb{R}^2$ , the form
 
-$$\omega((x_1, y_1), (x_2, y_2)) = x_1 y_2 - x_2 y_1 = \det\begin{pmatrix} x_1 & x_2 \\ y_1 & y_2 \end{pmatrix}$$
+$$\omega((x_1, y_1), (x_2, y_2)) = x_1 y_2 - x_2 y_1 = \det
+\begin{pmatrix} x_1 & x_2 \\ y_1 & y_2 
+\end{pmatrix}
+$$
+
 computes the signed area of the parallelogram spanned by two vectors. This is the prototype of all symplectic forms.
 
 In coordinates, any 2-form can be expressed using the **wedge product**:
@@ -59,7 +63,14 @@ For vectors $u = (q, p)$ and $v = (q', p')$ , this becomes:
 
 $$\omega(u,v) = q \cdot p' - p \cdot q' = u^T J v$$
 
-where $J = \begin{pmatrix} 0 & I_n \\ -I_n & 0 \end{pmatrix}$ is the **standard symplectic matrix**.
+where 
+
+$$ J = 
+\begin{pmatrix} 0 & I_n \\ -I_n & 0 
+\end{pmatrix}
+$$ 
+
+is the **standard symplectic matrix**.
 
 **Proposition 2.3 (Even Dimensionality).** If $(V, \omega)$ is symplectic, then $\dim(V) = 2n$ is even.
 
@@ -130,7 +141,11 @@ By induction, $W^\omega$ has a symplectic basis $\{e_2, \ldots, e_n, f_2, \ldots
 
 1. **Normal Form:** In a symplectic basis, the matrix of $\omega$ is the standard symplectic matrix:
 
-   $$[\omega] = J = \begin{pmatrix} 0 & I_n \\ -I_n & 0 \end{pmatrix}$$
+   $$
+   [\omega] = J = 
+      \begin{pmatrix} 0 & I_n \\ -I_n & 0 
+      \end{pmatrix}
+   $$
 
 2. **Uniqueness up to isomorphism:** All symplectic vector spaces of dimension $2n$ are isomorphic to $(\mathbb{F}^{2n}, \omega_{\text{std}})$.
 
@@ -191,7 +206,13 @@ Moreover, $\omega$ is a **symplectic form** on $\mathbb{F}_2^{2n}$ .
 
 For non-degeneracy: if $\omega((x|z), (x'|z')) = 0$ for all $(x'|z')$ , then $x \cdot z' + x' \cdot z = 0$ for all $x', z'$ . Taking $x' = 0$ shows $x = 0$ ; taking $z' = 0$ shows $z = 0$ . Thus $(x|z) = 0$ . ∎
 
-**Matrix Form.** Using $\Lambda = \begin{pmatrix} 0 & I_n \\ I_n & 0 \end{pmatrix}$ :
+**Matrix Form.** Using 
+$$\Lambda = 
+   \begin{pmatrix} 0 & I_n \\ I_n & 0 
+   \end{pmatrix}
+$$ 
+
+:
 
 $$\omega(u,v) = u^T \Lambda v \pmod{2}$$
 
