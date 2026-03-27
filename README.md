@@ -6,6 +6,8 @@ A Haskell implementation of the CHP clifford simulator, **reconstructed through 
 
 This package interprets Aaronson & Gottesman's CHP algorithm through the lens of **symplectic linear algebra over 𝔽₂**, revealing the underlying geometric structure that makes the algorithm work. Rather than treating the tableau as an opaque data structure, we expose it as a **Lagrangian subspace** of a symplectic vector space, with Clifford gates acting as **Sp(2n, 𝔽₂)** transformations.
 
+For more details about the theory, please refer to [theory](doc/symplectic-blog.md) 
+
 ## Symplectic Framework
 
 ### Pauli Group as Symplectic Vector Space
