@@ -65,9 +65,15 @@ $$\omega(u,v) = q \cdot p' - p \cdot q' = u^T J v$$
 
 where 
 
-$$ J = 
-\begin{pmatrix} 0 & I_n \\ -I_n & 0 
-\end{pmatrix}
+$$ 
+\[
+J = \left(
+\begin{aligned}
+   &0 & &I_n \\ 
+   -&I_n & &0 
+\end{aligned}
+\right)
+\]
 $$ 
 
 is the **standard symplectic matrix**.
@@ -205,16 +211,6 @@ Moreover, $\omega$ is a **symplectic form** on $\mathbb{F}_2^{2n}$ .
 *Proof.* Bilinearity is clear from the dot product. Skew-symmetry follows since over $\mathbb{F}_2$ , addition equals subtraction: $\omega(u,v) = \omega(v,u)$ , but since $-1 = 1$ , this is equivalent to skew-symmetry. 
 
 For non-degeneracy: if $\omega((x|z), (x'|z')) = 0$ for all $(x'|z')$ , then $x \cdot z' + x' \cdot z = 0$ for all $x', z'$ . Taking $x' = 0$ shows $x = 0$ ; taking $z' = 0$ shows $z = 0$ . Thus $(x|z) = 0$ . ∎
-
-**Matrix Form.** Using 
-$$\Lambda = 
-   \begin{pmatrix} 0 & I_n \\ I_n & 0 
-   \end{pmatrix}
-$$ 
-
-:
-
-$$\omega(u,v) = u^T \Lambda v \pmod{2}$$
 
 Note that over $\mathbb{F}_2$ , $\Lambda^T = \Lambda$ (since $-1 = 1$ ), consistent with skew-symmetry.
 
