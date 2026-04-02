@@ -106,17 +106,18 @@ spec = describe "SymplecticCHP.Gates" $ do
 
   describe "Gate composition" $ do
     it "H then CNOT creates Bell stabilizers" $ do
-      let tab0 = emptyTableau 2
-          tab1 = evolveTableau tab0 (Local (Hadamard 0))
-          tab2 = evolveTableau tab1 (CNOT 0 1)
-          s0 = rows tab2 !! 0  -- First stabilizer
-          s1 = rows tab2 !! 1  -- Second stabilizer
+      let tab0 = emptyTableauN 2
+          tab1 = evolveTableauSome tab0 (Local (Hadamard 0))
+          tab2 = evolveTableauSome tab1 (CNOT 0 1)
+          rowsTab = rowsSome tab2
+          s0 = rowsTab !! 0  -- First stabilizer
+          s1 = rowsTab !! 1  -- Second stabilizer
       -- After H⊗CNOT, stabilizers should be XX and ZZ
       symplecticForm s0 s1 `shouldBe` True  -- They commute
 
   describe "Tableau evolution" $ do
     it "preserves tableau validity" $ do
       property $ \(gates :: [SymplecticGate]) ->
-        let tab0 = emptyTableau 3
-            tab' = foldl evolveTableau tab0 (take 10 gates)
-        in isValid tab'
+        let tab0 = emptyTableauN 3
+            tab' = foldl evolveTableauSome tab0 (take 10 gates)
+        in isValidSome tab'

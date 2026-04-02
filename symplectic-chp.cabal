@@ -65,6 +65,8 @@ library
     build-depends:
         , base                >= 4.16    && < 4.20
         , vector              >= 0.13    && < 0.14
+        , vector-sized        >= 1.6     && < 1.7
+        , finite-typelits     >= 0.2     && < 0.3
         , primitive           >= 0.8     && < 0.10
         , random              >= 1.2     && < 1.3
         , mtl                 >= 2.3     && < 2.4
@@ -78,11 +80,12 @@ test-suite symplectic-chp-test
     hs-source-dirs:   test
     main-is:          Spec.hs
     other-modules:
-        -- Test.TableauSpec
-        -- Test.GatesSpec
-        -- Test.MeasurementSpec
+        Test.TableauSpec
+        Test.GatesSpec
+        Test.MeasurementSpec
         Test.UtilsSpec
-        -- Test.Examples
+        Test.Examples
+        Test.Arbitrary
     build-depends:
         , symplectic-chp
         , base
@@ -90,6 +93,8 @@ test-suite symplectic-chp-test
         , hspec-discover      >= 2.11    && < 2.12
         , QuickCheck          >= 2.14    && < 2.15
         , vector
+        , vector-sized
+        , finite-typelits
         , random
     build-tool-depends:
         hspec-discover:hspec-discover  

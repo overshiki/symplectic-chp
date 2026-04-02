@@ -1,12 +1,44 @@
 # Symplectic-CHP
 
-A Haskell implementation of the CHP clifford simulator, **reconstructed through symplectic geometry**.
+A Haskell implementation of the CHP clifford simulator, **through the lens of symplectic geometry** with **type-safe, fixed-length vectors**.
 
 ## Overview
 
 This package interprets Aaronson & Gottesman's CHP algorithm through the lens of **symplectic linear algebra over 𝔽₂**, revealing the underlying geometric structure that makes the algorithm work. Rather than treating the tableau as an opaque data structure, we expose it as a **Lagrangian subspace** of a symplectic vector space, with Clifford gates acting as **Sp(2n, 𝔽₂)** transformations.
 
-For more details about the theory, please refer to [theory](https://overshiki.github.io/symplectic-blog-intuitive/) 
+For more details about the theory, please refer to [theory](https://overshiki.github.io/symplectic-blog-intuitive/)
+
+## Features
+
+### Type-Safe Tableau Representation
+
+The `Tableau n` type uses **dependent types** (via `vector-sized`) to encode the 2n-row invariant at the type level:
+
+```haskell
+data Tableau (n :: Nat) = Tableau
+  { stabilizers   :: !(Vector n Pauli)    -- S₀..Sₙ₋₁
+  , destabilizers :: !(Vector n Pauli)    -- D₀..Dₙ₋₁
+  }
+```
+
+**Benefits:**
+- **Compile-time guarantees**: The type system ensures `stabilizers` and `destabilizers` always have exactly `n` elements
+- **No out-of-bounds access**: Indexing uses `Finite n` types, making invalid indices unrepresentable
+- **Performance**: O(1) vector indexing instead of O(n) list traversal
+- **Clarity**: Explicit separation of stabilizers and destabilizers eliminates `i < n` checks and `i + n` arithmetic
+
+### Runtime Flexibility with Existentials
+
+For scenarios requiring runtime-determined qubit counts:
+
+```haskell
+data SomeTableau where
+  SomeTableau :: KnownNat n => Tableau n -> SomeTableau
+
+emptyTableauN :: Int -> SomeTableau  -- Create from runtime value
+```
+
+This provides type safety where possible (static circuits) while preserving flexibility where needed (dynamic simulations). 
 
 ## Symplectic Framework
 
@@ -70,28 +102,50 @@ The measurement outcome is determined by the **symplectic inner product structur
 ```
 SymplecticCHP
 ├── Core          -- ω(·,·), Pauli group law, phase arithmetic
-├── Tableau       -- Lagrangian subspaces with symplectic bases
+├── Tableau       -- Lagrangian subspaces with type-safe symplectic bases
 ├── Gates         -- Sp(2n,𝔽₂) matrix action
 ├── Measurement   -- Isotropic/anti-isotropic decomposition
-└── Monad         -- Stateful evolution in Sp(2n,𝔽₂)
+└── Monad         -- Stateful evolution with existential types
 ```
+
+### Methodology: Type-Driven Design
+
+Our implementation follows **type-driven development** principles:
+
+1. **Make illegal states unrepresentable**: The 2n-row invariant is encoded in the type (`Tableau n`), preventing malformed tableaus at compile time.
+
+2. **Leverage dependent types**: Using `vector-sized` and `finite-typelits`, we obtain:
+   - Length-indexed vectors: `Vector n a` guarantees exactly `n` elements
+   - Bounded indices: `Finite n` ensures indices are always `0 ≤ i < n`
+
+3. **Separate static and dynamic interfaces**:
+   - **Static** (`Tableau n`): For known qubit counts, full type safety
+   - **Dynamic** (`SomeTableau`): For runtime-determined counts, existential wrapper
 
 ### The `isValid` Invariant
 
 Derived from the Symplectic Basis Theorem, our validity checker enforces three conditions that characterize a proper tableau:
 
 ```haskell
-isValid :: Tableau -> Bool
-isValid (Tableau n rs) = 
+isValid :: KnownNat n => Tableau n -> Bool
+isValid (Tableau stabs destabs) = 
   -- Isotropic: stabilizers mutually commute
-  and [ω(Sᵢ,Sⱼ)=0 | i≠j] &&
+  VS.and $ VS.imap (\i sᵢ ->
+    VS.and $ VS.imap (\j sⱼ ->
+      i == j || commute sᵢ sⱼ) stabs) stabs &&
   -- Dual pairing: ω(Dᵢ,Sⱼ)=δᵢⱼ
-  and [ω(Dᵢ,Sᵢ)=1] && and [ω(Dᵢ,Sⱼ)=0 | i≠j] &&
+  VS.and $ VS.imap (\i dᵢ ->
+    VS.and $ VS.imap (\j sⱼ ->
+      if i == j then anticommute dᵢ sⱼ else commute dᵢ sⱼ) stabs) destabs &&
   -- Derived: destabilizers mutually commute
-  and [ω(Dᵢ,Dⱼ)=0 | i<j]
+  VS.and $ VS.imap (\i dᵢ ->
+    VS.and $ VS.imap (\j dⱼ ->
+      i == j || commute dᵢ dⱼ) destabs) destabs
 ```
 
 The third condition, while not explicit in the original CHP paper, follows necessarily from the symplectic structure and serves as our primary correctness invariant.
+
+**Note**: The type `Tableau n` already guarantees the structural invariant (exactly `n` stabilizers and `n` destabilizers). The `isValid` function checks the *geometric* invariants (commutation relations) that the type system cannot enforce.
 
 ## Testing
 

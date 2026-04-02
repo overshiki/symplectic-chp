@@ -1,9 +1,13 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Test.TableauSpec where
 
 import Test.Hspec
 import Test.QuickCheck
 import SymplecticCHP
 import Data.Bits (bit)
+import Data.Maybe (fromJust)
 
 -- Local Pauli constructors
 pauliX, pauliZ, pauliY :: Int -> Pauli
@@ -28,26 +32,26 @@ instance Arbitrary SmallN where
 
 spec :: Spec
 spec = describe "SymplecticCHP.Tableau" $ do
-  describe "emptyTableau" $ do
+  describe "emptyTableauN" $ do
     it "creates valid tableau for |0...0>" $ do
-      let tab = emptyTableau 5
-      isValid tab `shouldBe` True
+      let tab = emptyTableauN 5
+      isValidSome tab `shouldBe` True
     
     it "has correct number of rows" $ do
       property $ \(SmallN n) ->
-        let tab = emptyTableau n
-        in length (rows tab) === 2 * n
+        let tab = emptyTableauN n
+        in length (rowsSome tab) === 2 * n
     
     it "has correct qubit count" $ do
       property $ \(SmallN n) ->
-        nQubits (emptyTableau n) === n
+        nQubitsSome (emptyTableauN n) === n
 
   describe "Stabilizer properties" $ do
     it "stabilizers commute with each other" $ do
       property $ \(SmallN n) ->
         n > 0 ==>
-          let tab = emptyTableau n
-              stab i = rows tab !! i
+          let tab = emptyTableauN n
+              stab i = fromJust $ stabilizerSome tab i
               -- FIX: Use 'and' with list of Bools, not ==>
               allCommute = and [ i == j || commute (stab i) (stab j)
                                | i <- [0..n-1], j <- [0..n-1] ]
@@ -56,9 +60,9 @@ spec = describe "SymplecticCHP.Tableau" $ do
     it "destabilizers have correct commutation with stabilizers" $ do
       property $ \(SmallN n) ->
         n > 0 ==>
-          let tab = emptyTableau n
-              stab i = rows tab !! i
-              destab i = rows tab !! (i + n)
+          let tab = emptyTableauN n
+              stab i = fromJust $ stabilizerSome tab i
+              destab i = fromJust $ destabilizerSome tab i
               -- FIX: Use if-then-else inside list comprehension, not ==>
               correctPairing = and 
                 [ if i == j then anticommute (destab i) (stab j)
@@ -69,36 +73,36 @@ spec = describe "SymplecticCHP.Tableau" $ do
   describe "Initial state |0...0>" $ do
     it "has Z stabilizers on each qubit" $ do
       let n = 4
-          tab = emptyTableau n
-          hasZStab i = xVec (rows tab !! i) == 0 && zVec (rows tab !! i) == bit i
+          tab = emptyTableauN n
+          hasZStab i = xVec (fromJust $ stabilizerSome tab i) == 0 && zVec (fromJust $ stabilizerSome tab i) == bit i
       all hasZStab [0..n-1] `shouldBe` True
     
     it "has X destabilizers on each qubit" $ do
       let n = 4
-          tab = emptyTableau n
-          hasXDestab i = xVec (rows tab !! (i+n)) == bit i && zVec (rows tab !! (i+n)) == 0
+          tab = emptyTableauN n
+          hasXDestab i = xVec (fromJust $ destabilizerSome tab i) == bit i && zVec (fromJust $ destabilizerSome tab i) == 0
       all hasXDestab [0..n-1] `shouldBe` True
     
     it "all stabilizers have zero phase" $ do
       let n = 5
-          tab = emptyTableau n
-      all (\i -> phase (rows tab !! i) == 0) [0..n-1] `shouldBe` True
+          tab = emptyTableauN n
+      all (\i -> phase (fromJust $ stabilizerSome tab i) == 0) [0..n-1] `shouldBe` True
 
   describe "(//) operator for tableau rows" $ do
     it "updates single row correctly" $ do
-      let tab = emptyTableau 2
+      let tab = emptyTableauN 2
           newRow = Pauli 0 0 0
-          rows' = rows tab // [(0, newRow)]
+          rows' = rowsSome tab // [(0, newRow)]
       rows' !! 0 `shouldBe` newRow
-      rows' !! 1 `shouldBe` (rows tab !! 1)
-      rows' !! 2 `shouldBe` (rows tab !! 2)
-      rows' !! 3 `shouldBe` (rows tab !! 3)
+      rows' !! 1 `shouldBe` (rowsSome tab !! 1)
+      rows' !! 2 `shouldBe` (rowsSome tab !! 2)
+      rows' !! 3 `shouldBe` (rowsSome tab !! 3)
     
     it "later update wins" $ do
-      let tab = emptyTableau 2
+      let tab = emptyTableauN 2
           rowA = Pauli 1 0 0
           rowB = Pauli 0 1 0
-          rows' = rows tab // [(0, rowA), (0, rowB)]
+          rows' = rowsSome tab // [(0, rowA), (0, rowB)]
       rows' !! 0 `shouldBe` rowB
 
   describe "Tableau validity preservation" $ do
@@ -106,10 +110,10 @@ spec = describe "SymplecticCHP.Tableau" $ do
       property $ \(SmallN n) (q :: Int) ->
         let q' = q `mod` max 1 n  -- Ensure 0 <= q' < n
         in n > 0 ==>
-            let tab0 = emptyTableau n
-                tabH = evolveTableau tab0 (Local (Hadamard q'))
-                tabS = evolveTableau tabH (Local (Phase q'))
-            in isValid tabH .&&. isValid tabS
+            let tab0 = emptyTableauN n
+                tabH = evolveTableauSome tab0 (Local (Hadamard q'))
+                tabS = evolveTableauSome tabH (Local (Phase q'))
+            in isValidSome tabH .&&. isValidSome tabS
 
 
     it "remains valid after CNOT" $ do
@@ -118,15 +122,15 @@ spec = describe "SymplecticCHP.Tableau" $ do
             c = cRaw `mod` n'
             t = tRaw `mod` n'
         in c /= t ==>
-            let tab0 = emptyTableau n'
-                tab' = evolveTableau tab0 (CNOT c t)
-            in isValid tab'
+            let tab0 = emptyTableauN n'
+                tab' = evolveTableauSome tab0 (CNOT c t)
+            in isValidSome tab'
 
   -- describe "Generate function" $ do
   --   it "produces list of correct length" $ do
   --     property $ \(n :: Int) ->
   --       n >= 0 && n <= 100 ==>
   --         length (generate n id) === n
-    
+  --   
   --   it "applies function correctly" $ do
   --     generate 5 (*2) `shouldBe` [0,2,4,6,8]
