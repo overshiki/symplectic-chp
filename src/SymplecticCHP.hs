@@ -15,6 +15,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module SymplecticCHP where
 
@@ -25,6 +26,7 @@ import Data.Kind (Type)
 import System.Random (randomRIO)
 import Data.List (sortOn, groupBy)
 import Data.Function (on)
+import Data.Maybe (fromJust, isJust)
 
 -- vector-sized imports
 import qualified Data.Vector.Sized as VS
@@ -37,41 +39,231 @@ import Data.Finite (Finite)
 import qualified Data.Finite as Finite
 
 -- ============================================================================
--- Symplectic Vector Space Type Class Hierarchy
+-- PART I: GROUP STRUCTURE
 -- ============================================================================
 
--- | A symplectic vector space over a field k.
--- The symplectic form ω is a bilinear, alternating, non-degenerate form.
+-- | A group (G, ·, e, ⁻¹) 
+-- 
+-- Mathematically, a group consists of:
+-- 1. A set G
+-- 2. A binary operation ·: G × G → G (multiplication)
+-- 3. An identity element e ∈ G
+-- 4. Inverses: for all g ∈ G, exists g⁻¹ ∈ G such that g·g⁻¹ = e
+--
+-- Satisfying: associativity, identity, inverse laws
+class Group g where
+  -- | Group multiplication
+  mulG :: g -> g -> g
+  
+  -- | Identity element
+  identityG :: g
+  
+  -- | Inverse
+  invG :: g -> g
+  
+  -- | Commutator [a,b] = a·b·a⁻¹·b⁻¹
+  commutatorG :: g -> g -> g
+  commutatorG a b = mulG (mulG (mulG a b) (invG a)) (invG b)
+
+-- | A group where every pair of elements either commutes or anticommutes
+-- 
+-- This is a special property. For such groups, there exists a central
+-- element z (of order 2) such that:
+-- - Either [a,b] = e (commute)
+-- - Or [a,b] = z (anticommute)
+class Group g => BinaryCommutationGroup g where
+  -- | The central element representing "anticommutation"
+  -- For Pauli group, this is -I (phase 2)
+  anticommutationMarker :: g
+  
+  -- | Check if two elements commute: [a,b] = e
+  commuteG :: g -> g -> Bool
+  
+  -- | Check if two elements anticommute: [a,b] = z
+  anticommuteG :: g -> g -> Bool
+  anticommuteG a b = not (commuteG a b)
+
+-- ============================================================================
+-- PART II: SYMPLECTIC VECTOR SPACE STRUCTURE
+-- ============================================================================
+
+-- | A symplectic vector space (V, ω) over a field k.
+-- 
+-- Mathematically, a symplectic vector space consists of:
+-- 1. A vector space V over a field k
+-- 2. A symplectic form ω: V × V → k that is:
+--    - Bilinear
+--    - Alternating: ω(v, v) = 0 for all v
+--    - Non-degenerate: if ω(v, w) = 0 for all w, then v = 0
+--
+-- Note: "Commute" and "anticommute" are NOT part of this abstraction.
+-- They are specific to the Pauli group interpretation where:
+-- - ω(v1, v2) = 0 is interpreted as "commute"
+-- - ω(v1, v2) = 1 is interpreted as "anticommute"
 class Eq (Field v) => SymplecticVectorSpace v where
   type Field v :: Type
   
-  -- | Zero element of the field
+  -- | The zero element of the field (needed for isotropy checks)
   fieldZero :: proxy v -> Field v
   
   -- | The symplectic form ω(v1, v2)
+  -- This is a bilinear, alternating, non-degenerate form
   omega :: v -> v -> Field v
   
-  -- | Vector addition (abelian group)
+  -- | Vector addition (abelian group operation)
   addV :: v -> v -> v
   
-  -- | Zero vector
+  -- | Zero vector (identity for addV)
   zeroV :: v
   
   -- | Negation (additive inverse)
   negateV :: v -> v
-  
-  -- | Check if a vector is isotropic (ω(v,v) = 0)
-  isIsotropicElement :: v -> Bool
-  
-  -- | Two vectors commute iff ω(v1, v2) = 0
-  commuteV :: v -> v -> Bool
-  
-  -- | Two vectors anti-commute iff ω(v1, v2) ≠ 0
-  anticommuteV :: v -> v -> Bool
-  anticommuteV v1 v2 = not (commuteV v1 v2)
+
+-- | Check if a vector is isotropic: ω(v, v) = fieldZero
+-- In a symplectic vector space, ALL vectors are isotropic (alternating property)
+isIsotropicElement :: (SymplecticVectorSpace v, Eq (Field v)) => proxy v -> v -> Bool
+isIsotropicElement p v = omega v v == fieldZero p
+
+-- | Check if two vectors are symplectically orthogonal: ω(v1, v2) = fieldZero
+symplecticOrthogonal :: (SymplecticVectorSpace v, Eq (Field v)) => proxy v -> v -> v -> Bool
+symplecticOrthogonal p v1 v2 = omega v1 v2 == fieldZero p
+
+-- | For Pauli group specifically: two operators commute iff ω = 0
+-- This is an interpretation specific to F_2
+commuteV :: (SymplecticVectorSpace v, Field v ~ Bool) => v -> v -> Bool
+commuteV v1 v2 = not (omega v1 v2)
+
+-- | For Pauli group specifically: two operators anticommute iff ω = 1
+-- This is an interpretation specific to F_2
+anticommuteV :: (SymplecticVectorSpace v, Field v ~ Bool) => v -> v -> Bool
+anticommuteV v1 v2 = omega v1 v2
 
 -- ============================================================================
--- Pauli Group as Symplectic Vector Space over F_2
+-- PART III: THE CRUCIAL CONNECTION - SYMPLECTIC GROUP
+-- ============================================================================
+
+-- | A group that is also a symplectic vector space via quotient by center.
+--
+-- The Pauli group is a central extension:
+-- 1 → Z(G) → G → V → 1
+-- where:
+-- - Z(G) is the center (phases for Pauli: {±I, ±iI})
+-- - V = G/Z(G) is the symplectic vector space (F_2)^(2n)
+-- - The commutator [a,b] corresponds to the symplectic form ω(ā, b̄)
+--
+-- Key theorem: [a,b] = e ⟺ ω(ā, b̄) = 0
+--              [a,b] = z ⟺ ω(ā, b̄) ≠ 0
+-- where ā is the projection of a to V, z = anticommutationMarker
+class (BinaryCommutationGroup g, SymplecticVectorSpace v) 
+      => SymplecticGroup g v | g -> v where
+  -- | Project to the symplectic quotient (strip phases)
+  toSymplectic :: g -> v
+  
+  -- | Lift from symplectic quotient (add phase, if possible)
+  fromSymplectic :: v -> Maybe g
+  
+  -- | The fundamental theorem: commutator is determined by symplectic form
+  -- [a,b] = e  ⟺  ω(ā, b̄) = 0
+  symplecticCommutation :: g -> g -> Bool
+  symplecticCommutation a b = 
+    let va = toSymplectic a
+        vb = toSymplectic b
+        p = Proxy :: Proxy v
+    in omega va vb == fieldZero p
+
+-- ============================================================================
+-- PART IV: ISOTROPIC AND LAGRANGIAN SUBSPACES
+-- ============================================================================
+
+-- | An isotropic subspace: ω vanishes on all pairs
+-- 
+-- Mathematically: W ⊂ V such that ω|_{W×W} = 0
+-- Dimension bound: dim(W) ≤ n in a 2n-dimensional symplectic space
+class (KnownNat n, SymplecticVectorSpace v) => IsotropicSubSpace s n v where
+  -- | Get the underlying basis vectors
+  toBasis :: s n v -> Vector n v
+  
+  -- | Check isotropy: ω(v_i, v_j) = fieldZero for all i, j
+  verifyIsotropy :: s n v -> Bool
+  verifyIsotropy s = 
+    let vs = toBasis s
+        p = Proxy :: Proxy v
+    in VS.all (\v_i -> VS.all (\v_j -> symplecticOrthogonal p v_i v_j) vs) vs
+  
+  -- | Get the dimension (always n for this representation)
+  dimSubspace :: s n v -> Int
+  dimSubspace _ = fromIntegral $ natVal (Proxy @n)
+
+-- | Lagrangian subspace: maximal isotropic (dim = n in 2n-dim space)
+-- 
+-- A Lagrangian subspace is isotropic and maximal with respect to inclusion.
+-- These correspond to maximal abelian subgroups of the Pauli group.
+class IsotropicSubSpace s n v => LagrangianSubSpace s n v
+
+-- ============================================================================
+-- PART V: THE ABELIAN-LAGRANGIAN CORRESPONDENCE
+-- ============================================================================
+
+-- | The fundamental correspondence:
+-- Abelian subgroups of a SymplecticGroup ⟷ Isotropic subspaces of V
+--
+-- Key insight: 
+-- - Pauli operators P₁, P₂ commute  ⟺  ω(v₁, v₂) = 0
+-- - A set of commuting Paulis forms an Abelian subgroup  ⟺  
+--   The corresponding vectors form an Isotropic subspace
+-- - A MAXIMAL commuting set  ⟺  A LAGRANGIAN subspace (dimension = n)
+class SymplecticGroup g v => AbelianLagrangianCorrespondence g n v | g -> v where
+  -- | The type representing abelian subgroups of g
+  -- These correspond to isotropic subspaces of the quotient
+  type IsotropicSubgroup g :: Nat -> Type
+  
+  -- | Convert an abelian subgroup to an isotropic subspace
+  -- This strips phases and takes the span in V
+  subgroupToIsotropic :: IsotropicSubgroup g n -> Lagrangian n v
+  
+  -- | Lift an isotropic subspace to an abelian subgroup
+  -- This adds canonical phases (usually 0) to each generator
+  isotropicToSubgroup :: Lagrangian n v -> IsotropicSubgroup g n
+  
+  -- | Verify the fundamental invariant: abelian ⟺ isotropic
+  -- For all a, b in subgroup: [a,b] = e  ⟺  ω(ā, b̄) = 0
+  abelianIffIsotropic :: IsotropicSubgroup g n -> Bool
+
+-- | Maximal abelian subgroups correspond to Lagrangian subspaces
+class AbelianLagrangianCorrespondence g n v => MaximalAbelianCorrespondence g n v where
+  -- | Check if abelian subgroup is maximal (dimension = n)
+  isMaximalAbelian :: IsotropicSubgroup g n -> Bool
+  
+  -- | The correspondence: maximal abelian ⟺ Lagrangian
+  maximalAbelianIffLagrangian :: IsotropicSubgroup g n -> Bool
+
+-- ============================================================================
+-- PART VI: THE SYMPLECTIC BASIS THEOREM (The Crown Jewel)
+-- ============================================================================
+
+-- | The Symplectic Basis Theorem: Every symplectic vector space admits
+-- a canonical basis (Darboux basis) that puts ω in standard form.
+--
+-- Mathematical Statement:
+-- Let (V, ω) be a symplectic vector space over field k, dim(V) = 2n.
+-- Then there exists a basis {e₁,...,eₙ, f₁,...,fₙ} such that:
+--   ω(eᵢ, eⱼ) = 0         (e's span a Lagrangian)
+--   ω(fᵢ, fⱼ) = 0         (f's span a Lagrangian)  
+--   ω(eᵢ, fⱼ) = δᵢⱼ       (duality)
+--
+-- This is equivalent to saying V decomposes as L ⊕ L* where L is Lagrangian.
+class (KnownNat n, SymplecticVectorSpace v) => SymplecticBasisTheorem s n v where
+  -- | Get the first Lagrangian (traditionally "position" or stabilizers)
+  firstLagrangian :: s n v -> Lagrangian n v
+  
+  -- | Get the second Lagrangian (traditionally "momentum" or destabilizers)
+  secondLagrangian :: s n v -> Lagrangian n v
+  
+  -- | Verify the duality condition: ω(secondᵢ, firstⱼ) = δᵢⱼ
+  verifyDuality :: s n v -> Bool
+
+-- ============================================================================
+-- PART VII: CONCRETE IMPLEMENTATION - PAULI GROUP
 -- ============================================================================
 
 -- | Pauli operator P = i^phase · X^x Z^z as symplectic vector (x|z) ∈ F_2^(2n)
@@ -84,30 +276,24 @@ data Pauli = Pauli
   } 
   deriving (Eq, Show)
 
-instance SymplecticVectorSpace Pauli where
-  type Field Pauli = Bool  -- ^ F_2, represented as Bool
+-- | Group instance: Pauli operators form a group under multiplication
+instance Group Pauli where
+  mulG = multiplyPauli
+  identityG = Pauli 0 0 0
+  invG (Pauli x z r) = Pauli x z ((4 - r) `mod` 4)
+
+-- | Binary commutation: Pauli operators either commute or anticommute
+instance BinaryCommutationGroup Pauli where
+  -- The anticommutation marker is -I (phase 2)
+  anticommutationMarker = Pauli 0 0 2
   
-  -- | Zero element of the field (False = 0 ∈ F_2)
-  fieldZero _ = False
-  
-  -- | Symplectic inner product (commutator)
-  omega (Pauli x1 z1 _) (Pauli x2 z2 _) = 
-    odd (popCount ((x1 .&. z2) `xor` (z1 .&. x2)))
-  
-  -- | Pauli group multiplication is vector addition in (F_2)^(2n)
-  addV = multiplyPauli
-  
-  -- | Identity element
-  zeroV = Pauli 0 0 0
-  
-  -- | Inverse (negation) - conjugate by changing phase
-  negateV (Pauli x z r) = Pauli x z ((4 - r) `mod` 4)
-  
-  -- | In F_2, ω(v,v) = 0 always (alternating property)
-  isIsotropicElement _ = True
-  
-  -- | Commute if ω = False (0 ∈ F_2)
-  commuteV v1 v2 = not (omega v1 v2)
+  -- Two Paulis commute iff ω = 0 (symplectic form vanishes)
+  commuteG p1 p2 = not (omegaPauli p1 p2)
+
+-- | Helper: compute omega for Pauli (ignoring phase)
+omegaPauli :: Pauli -> Pauli -> Bool
+omegaPauli (Pauli x1 z1 _) (Pauli x2 z2 _) = 
+  odd (popCount ((x1 .&. z2) `xor` (z1 .&. x2)))
 
 -- | Pauli group multiplication with phase tracking
 multiplyPauli :: Pauli -> Pauli -> Pauli
@@ -119,24 +305,42 @@ multiplyPauli (Pauli x1 z1 r1) (Pauli x2 z2 r2) =
       r = (r1 + r2 + symPhase) `mod` 4
   in Pauli x z r
 
--- | Symplectic inner product (commutator) - backward compatible
--- Returns True if they commute (ω=0), False if anti-commute (ω=1)
-symplecticForm :: Pauli -> Pauli -> Bool
-symplecticForm p1 p2 = not (omega p1 p2)
+-- | Symplectic vector space structure on Pauli (modulo phases)
+-- The quotient Pauli / {phases} ≅ (F_2)^(2n)
+instance SymplecticVectorSpace Pauli where
+  type Field Pauli = Bool  -- ^ F_2, represented as Bool
+  
+  -- | Zero element of F_2 (False = 0)
+  fieldZero _ = False
+  
+  -- | Symplectic inner product ω: Pauli × Pauli → F_2
+  -- ω(P₁, P₂) = x₁·z₂ + z₁·x₂ (mod 2)
+  -- This is bilinear, alternating, and non-degenerate
+  omega = omegaPauli
+  
+  -- | Pauli group multiplication is vector addition in (F_2)^(2n)
+  -- (ignoring phase)
+  addV = multiplyPauli
+  
+  -- | Identity element (zero vector)
+  zeroV = Pauli 0 0 0
+  
+  -- | Inverse (negation) - conjugate by changing phase
+  negateV (Pauli x z r) = Pauli x z ((4 - r) `mod` 4)
 
--- | Check if two Paulis commute (wrapper for clarity)
-commute :: Pauli -> Pauli -> Bool
-commute = commuteV
-
-anticommute :: Pauli -> Pauli -> Bool
-anticommute = anticommuteV
-
--- | Pauli group multiplication (exported)
-multiply :: Pauli -> Pauli -> Pauli
-multiply = multiplyPauli
+-- | The symplectic group connection: Pauli → (F_2)^(2n)
+instance SymplecticGroup Pauli Pauli where
+  -- The projection strips the phase, keeping only (x|z)
+  toSymplectic (Pauli x z _) = Pauli x z 0
+  
+  -- Lift adds zero phase
+  fromSymplectic (Pauli x z r) = Just (Pauli x z ((r `mod` 4 + 4) `mod` 4))
+  
+  -- The fundamental theorem: [P,Q] = I ⟺ ω(P,Q) = 0
+  symplecticCommutation = commuteG
 
 -- ============================================================================
--- Lagrangian Subspace (Maximal Isotropic)
+-- PART VIII: LAGRANGIAN SUBSPACE DATA TYPE
 -- ============================================================================
 
 -- | A Lagrangian subspace is a maximal isotropic subspace of dimension n
@@ -147,31 +351,12 @@ newtype Lagrangian (n :: Nat) v = Lagrangian
   }
   deriving (Show)
 
--- | Class for isotropic subspaces (subspaces where ω vanishes)
-class (KnownNat n, SymplecticVectorSpace v) => IsotropicSubSpace s n v where
-  -- | Get the underlying basis vectors
-  toBasis :: s n v -> Vector n v
-  
-  -- | Check isotropy: ω(v_i, v_j) = 0 for all i, j
-  verifyIsotropy :: s n v -> Bool
-  verifyIsotropy s = 
-    let vs = toBasis s
-    in VS.all (\v_i -> VS.all (\v_j -> commuteV v_i v_j) vs) vs
-  
-  -- | Get the dimension (always n for this representation)
-  dimSubspace :: s n v -> Int
-  dimSubspace _ = fromIntegral $ natVal (Proxy @n)
-
--- | Lagrangian subspaces are maximal isotropic
-class IsotropicSubSpace Lagrangian n v => LagrangianSubSpace n v where
-  -- | Empty Lagrangian for construction
-  emptyLagrangian :: Vector n v -> Lagrangian n v
-  emptyLagrangian = Lagrangian
-
+-- | Isotropic subspace instance
 instance (KnownNat n, SymplecticVectorSpace v) => IsotropicSubSpace Lagrangian n v where
   toBasis = lagrangianBasis
 
-instance (KnownNat n, SymplecticVectorSpace v) => LagrangianSubSpace n v
+-- | Lagrangian subspace instance
+instance (KnownNat n, SymplecticVectorSpace v) => LagrangianSubSpace Lagrangian n v
 
 -- | Map over a Lagrangian (apply symplectic transformation)
 mapLagrangian :: (v -> v) -> Lagrangian n v -> Lagrangian n v
@@ -186,57 +371,45 @@ toListLagrangian :: Lagrangian n v -> [v]
 toListLagrangian (Lagrangian vs) = VS.toList vs
 
 -- ============================================================================
--- Tableau as Symplectic Basis (Two Transverse Lagrangians)
+-- PART IX: TABLEAU AS SYMPLECTIC BASIS
 -- ============================================================================
 
--- | Duality proof: ω(D_i, S_j) = δ_ij
--- Represented as a matrix where diagonal should be True (anti-commute)
--- and off-diagonal should be False (commute)
-type DualityProof n = Vector n (Vector n Bool)
-
--- | The tableau represents a symplectic basis consisting of:
---   - Stabilizers S: a Lagrangian subspace (isotropic, dimension n)
---   - Destabilizers D: another Lagrangian subspace, transverse to S
--- The duality condition ω(D_i, S_j) = δ_ij makes (S, D) a symplectic basis.
+-- | The CHP Tableau is the computational realization of the 
+-- Symplectic Basis Theorem for the Pauli group.
+--
+-- Tableau n v = (Lagrangian n v, Lagrangian n v) with duality
+-- where:
+-- - First Lagrangian = Stabilizers S (isotropic)
+-- - Second Lagrangian = Destabilizers D (isotropic)
+-- - Duality: ω(Dᵢ, Sⱼ) = δᵢⱼ
 data Tableau (n :: Nat) v where
   Tableau :: (SymplecticVectorSpace v, Field v ~ Bool) =>
-    { stabLagrangian :: Lagrangian n v      -- ^ S: stabilizer subspace
-    , destabLagrangian :: Lagrangian n v    -- ^ D: destabilizer subspace
+    { stabLagrangian :: Lagrangian n v      -- ^ S: first Lagrangian (stabilizers)
+    , destabLagrangian :: Lagrangian n v    -- ^ D: second Lagrangian (destabilizers)
     } -> Tableau n v
 
--- | Class for symplectic bases (two transverse Lagrangians)
-class (KnownNat n, SymplecticVectorSpace v) => SymplecticBasis s n v where
-  -- | Get the stabilizer Lagrangian (first Lagrangian)
-  getStabLagrangian :: s n v -> Lagrangian n v
+-- | Tableau implements the Symplectic Basis Theorem!
+instance (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) 
+         => SymplecticBasisTheorem Tableau n v where
+  firstLagrangian = stabLagrangian
+  secondLagrangian = destabLagrangian
   
-  -- | Get the destabilizer Lagrangian (second Lagrangian)
-  getDestabLagrangian :: s n v -> Lagrangian n v
-  
-  -- | Verify duality: ω(D_i, S_j) = δ_ij
-  verifyDuality :: s n v -> Bool
-  verifyDuality s =
-    let d = getDestabLagrangian s
-        st = getStabLagrangian s
+  -- Verify: ω(Dᵢ, Sⱼ) = δᵢⱼ
+  verifyDuality tab =
+    let s = stabLagrangian tab
+        d = destabLagrangian tab
+        vs = lagrangianBasis s
+        vd = lagrangianBasis d
     in VS.and $ VS.imap (\i d_i ->
          VS.and $ VS.imap (\j s_j ->
-           if Finite.equals i j
-           then anticommuteV d_i s_j  -- ω(D_i, S_i) = 1 (anti-commute)
-           else commuteV d_i s_j       -- ω(D_i, S_j) = 0 (commute for i≠j)
-         ) (lagrangianBasis st)
-       ) (lagrangianBasis d)
-  
-  -- | Verify both subspaces are isotropic
-  verifyIsotropic :: s n v -> Bool
-  verifyIsotropic s = verifyIsotropy (getStabLagrangian s) && 
-                      verifyIsotropy (getDestabLagrangian s)
-
-instance (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) => 
-         SymplecticBasis Tableau n v where
-  getStabLagrangian = stabLagrangian
-  getDestabLagrangian = destabLagrangian
+           if i == j 
+           then omega d_i s_j == True   -- ω(Dᵢ, Sᵢ) = 1
+           else omega d_i s_j == False  -- ω(Dᵢ, Sⱼ) = 0 for i≠j
+         ) vs
+       ) vd
 
 -- ============================================================================
--- Tableau Operations
+-- PART X: TABLEAU OPERATIONS
 -- ============================================================================
 
 -- | Get the number of qubits (dimension of each Lagrangian)
@@ -274,6 +447,7 @@ rows :: (KnownNat n, SymplecticVectorSpace v) => Tableau n v -> [v]
 rows tab = toListLagrangian (stabLagrangian tab) ++ toListLagrangian (destabLagrangian tab)
 
 -- | Initial state |0...0⟩: S_i = Z_i, D_i = X_i
+-- This is the standard symplectic basis for the initial state
 emptyTableau :: forall n. KnownNat n => Tableau n Pauli
 emptyTableau = Tableau stabs destabs
   where
@@ -285,34 +459,37 @@ emptyTableau = Tableau stabs destabs
       in Pauli (bit idx) 0 0        -- X_i destabilizer
 
 -- | Verify tableau validity (symplectic basis conditions)
-isValid :: forall n v. (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool, SymplecticBasis Tableau n v) => Tableau n v -> Bool
+-- This checks the three conditions from the Symplectic Basis Theorem:
+-- 1. Stabilizers are isotropic: ω(Sᵢ, Sⱼ) = 0
+-- 2. Destabilizers are isotropic: ω(Dᵢ, Dⱼ) = 0
+-- 3. Duality: ω(Dᵢ, Sⱼ) = δᵢⱼ
+isValid :: forall n v. (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool, SymplecticBasisTheorem Tableau n v) 
+        => Tableau n v -> Bool
 isValid tab = 
   let s = stabLagrangian tab
       d = destabLagrangian tab
       vs = lagrangianBasis s
       vd = lagrangianBasis d
-      -- Check stabilizers are isotropic
-      stabIsotropic = VS.all (\s_i -> VS.all (\s_j -> commuteV s_i s_j) vs) vs
-      -- Check destabilizers are isotropic
-      destIsotropic = VS.all (\d_i -> VS.all (\d_j -> commuteV d_i d_j) vd) vd
-      -- Check dual pairing: ω(D_i, S_j) = δ_ij (via SymplecticBasis type class)
+      p = Proxy :: Proxy v
+      -- Check stabilizers are isotropic: ω(Sᵢ, Sⱼ) = 0
+      stabIsotropic = VS.all (\s_i -> VS.all (\s_j -> symplecticOrthogonal p s_i s_j) vs) vs
+      -- Check destabilizers are isotropic: ω(Dᵢ, Dⱼ) = 0
+      destIsotropic = VS.all (\d_i -> VS.all (\d_j -> symplecticOrthogonal p d_i d_j) vd) vd
+      -- Check dual pairing: ω(Dᵢ, Sⱼ) = δᵢⱼ (via SymplecticBasisTheorem)
       dualPairing = verifyDuality tab
   in stabIsotropic && destIsotropic && dualPairing
 
 -- ============================================================================
--- Clifford Gates as Symplectic Transformations
+-- PART XI: CLIFFORD GATES AS SYMPLECTIC TRANSFORMATIONS
 -- ============================================================================
 
--- | Clifford gates are symplectic transformations preserving ω.
--- They act on the symplectic vector space by conjugation.
-
--- Symplectic transformation on single qubit i
+-- | Symplectic transformation on single qubit i
 data LocalSymplectic 
   = Hadamard !Int      -- ^ H: (x_i, z_i) ↦ (z_i, x_i)
   | Phase !Int         -- ^ S: (x_i, z_i) ↦ (x_i, x_i + z_i)
   deriving (Show)
 
--- Two-qubit symplectic
+-- | Two-qubit symplectic
 data SymplecticGate
   = Local !LocalSymplectic
   | CNOT !Int !Int     -- ^ (x_c, z_c, x_t, z_t) ↦ (x_c, z_c+z_t, x_t+x_c, z_t)
@@ -324,68 +501,56 @@ applyGate :: SymplecticGate -> Pauli -> Pauli
 applyGate (Local (Hadamard i)) (Pauli x z r) =
   let xi = testBit x i
       zi = testBit z i
-      -- CORRECT bit swap using mask
       mask = complement (bit i)
       x' = (x .&. mask) .|. (if zi then bit i else 0)
       z' = (z .&. mask) .|. (if xi then bit i else 0)
-      -- Phase: flip by 2 (add -1) if Y operator
       r' = (r + if xi && zi then 2 else 0) `mod` 4
   in Pauli x' z' r'
 
 applyGate (Local (Phase i)) (Pauli x z r) =
   let xi = testBit x i
       z' = if xi then z `xor` bit i else z
-      -- Phase: S X S† = Y (phase i), S Y S† = -X (phase -i = 3)
       r' = (r + if xi && not (testBit z i) then 1 else 0) `mod` 4
   in Pauli x z' r'
 
 applyGate (CNOT c t) (Pauli x z r) =
   let xc = testBit x c; zc = testBit z c
       xt = testBit x t; zt = testBit z t
-      -- x_t += x_c, z_c += z_t
       x' = if xc then x `xor` bit t else x
       z' = if zt then z `xor` bit c else z
-      -- Phase from commutation: i^{x_c z_t (1 + x_t + z_c)}
       phaseTerm = if xc && zt then (if xt `xor` zc then 2 else 0) + 1 else 0
       r' = (r + phaseTerm) `mod` 4
   in Pauli x' z' r'
 
 -- | Apply gate to entire tableau (conjugate both Lagrangians)
 -- Since Clifford gates preserve the symplectic form, they map
--- symplectic bases to symplectic bases.
+-- symplectic bases to symplectic bases (per Symplectic Basis Theorem).
 evolveTableau :: KnownNat n => Tableau n Pauli -> SymplecticGate -> Tableau n Pauli
 evolveTableau (Tableau s d) g = 
-  let -- Apply the symplectic transformation to both Lagrangians
-      s' = mapLagrangian (applyGate g) s
+  let s' = mapLagrangian (applyGate g) s
       d' = mapLagrangian (applyGate g) d
   in Tableau s' d'
 
 -- ============================================================================
--- Measurement via Symplectic Decomposition
+-- PART XII: MEASUREMENT VIA SYMPLECTIC DECOMPOSITION
 -- ============================================================================
 
--- | Measurement of Pauli P:
---   1. Check if P ∈ S^⊥ (commutes with stabilizer subspace)
---      - If yes: deterministic outcome, phase from decomposition
---      - If no: random outcome, update isotropic subspace via symplectic transvection
 data MeasurementResult = Determinate Bool | Random Bool
   deriving (Show)
 
 -- | Test if measurement is deterministic: P must commute with stabilizer subspace
-isDeterminate :: (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) => Tableau n v -> v -> Bool
+isDeterminate :: KnownNat n => Tableau n Pauli -> Pauli -> Bool
 isDeterminate tab p = 
-  VS.all (\s_i -> commuteV p s_i) (lagrangianBasis $ stabLagrangian tab)
+  VS.all (\s_i -> commuteG p s_i) (lagrangianBasis $ stabLagrangian tab)
 
 -- | Find stabilizer index j such that P anti-commutes with S_j
--- Returns Nothing if P commutes with all stabilizers (determinate measurement)
-findAntiCommutingStab :: forall n v. (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) 
-                      => Tableau n v -> v -> Maybe Int
+findAntiCommutingStab :: forall n. KnownNat n => Tableau n Pauli -> Pauli -> Maybe Int
 findAntiCommutingStab tab p =
   let s = stabLagrangian tab
   in VS.ifoldl' (\acc (i :: Finite n) s_i ->
     case acc of
       Just _ -> acc
-      Nothing -> if anticommuteV p s_i then Just (fromIntegral $ Finite.getFinite i) else Nothing) Nothing (lagrangianBasis s)
+      Nothing -> if anticommuteG p s_i then Just (fromIntegral $ Finite.getFinite i) else Nothing) Nothing (lagrangianBasis s)
 
 -- | Update a vector at a specific index
 updateVector :: KnownNat n => Int -> a -> Vector n a -> Vector n a
@@ -405,51 +570,41 @@ measure tab@(Tableau s d) p
   | otherwise = do
       let Just j = findAntiCommutingStab tab p
           Just jFin = intToFinite j
-          s_j = indexLagrangian s jFin  -- SAVE old stabilizer S_j before updates
+          s_j = indexLagrangian s jFin
           
-          -- Update stabilizers via symplectic transvection:
-          -- 1. S_j → p' (new stabilizer with phase from random outcome)
-          -- 2. S_k → S_k · s_j for k≠j where P anti-commutes with S_k
           newStabBasis = VS.imap (\(k :: Finite n) s_k ->
             if k == jFin 
-              then p  -- Will fix phase below
-              else if anticommuteV p (indexLagrangian s k)
-                   then multiplyPauli s_k s_j  -- S_k = S_k · S_j
+              then p
+              else if anticommuteG p (indexLagrangian s k)
+                   then multiplyPauli s_k s_j
                    else s_k) (lagrangianBasis s)
-          newStabs = Lagrangian newStabBasis
           
-          -- Update destabilizers: D_j → s_j (old stabilizer becomes new destabilizer)
           newDestabBasis = updateVector j s_j (lagrangianBasis d)
-          newDestabs = Lagrangian newDestabBasis
       
-      -- Random outcome
       outcome <- randomRIO (0, 1) :: IO Int
       
-      -- Phase: -1 outcome adds 2 to phase
       let Pauli x z r = p
           p' = Pauli x z ((r + if outcome == 0 then 2 else 0) `mod` 4)
           finalStabBasis = updateVector j p' newStabBasis
           finalStabs = Lagrangian finalStabBasis
+          newDestabs = Lagrangian newDestabBasis
       
       return (Tableau finalStabs newDestabs, Random (outcome == 1))
 
 -- | Compute deterministic measurement outcome via symplectic decomposition
 computePhase :: forall n. KnownNat n => Tableau n Pauli -> Pauli -> Bool
 computePhase (Tableau s d) p = 
-  -- Accumulate product of stabilizers S_j where P anti-commutes with D_j
   let scratch = VS.ifoldl' (\acc (j :: Finite n) d_j ->
-        if anticommuteV p d_j  -- [P, D_j] ≠ 0 means S_j is in decomposition
+        if anticommuteG p d_j
           then multiplyPauli acc (indexLagrangian s j)
           else acc) (Pauli 0 0 0) (lagrangianBasis d)
-      -- Total phase: P = ±(stabilizer product), so compare phases
       totalPhase = (phase p - phase scratch) `mod` 4
-  in totalPhase == 0  -- +1 if phases match, -1 if differ by 2
+  in totalPhase == 0
 
 -- ============================================================================
--- Monadic Interface
+-- PART XIII: MONADIC INTERFACE
 -- ============================================================================
 
--- Existential wrapper to hide the type parameter
 data SomeTableau where
   SomeTableau :: KnownNat n => Tableau n Pauli -> SomeTableau
 
@@ -467,12 +622,10 @@ instance Monad Clifford where
   return = pure
   Clifford x >>= f = Clifford $ \t -> do (t', x') <- x t; runClifford (f x') t'
 
--- | Apply symplectic gate
 gate :: SymplecticGate -> Clifford ()
 gate g = Clifford $ \t -> case t of
   SomeTableau tab -> return (SomeTableau (evolveTableau tab g), ())
 
--- | Measure Pauli operator
 measurePauli :: Pauli -> Clifford Bool
 measurePauli p = Clifford $ \t -> case t of
   SomeTableau tab -> do
@@ -481,15 +634,12 @@ measurePauli p = Clifford $ \t -> case t of
       Determinate b -> return (SomeTableau t', b)
       Random b      -> return (SomeTableau t', b)
 
--- | Get current tableau state (as SomeTableau existential)
 getTableau :: Clifford SomeTableau
 getTableau = Clifford $ \t -> return (t, t)
 
--- | Helper to bring KnownNat instance into scope from a Proxy
 withNatProxy :: KnownNat n => Proxy n -> (KnownNat n => Tableau n Pauli) -> Tableau n Pauli
 withNatProxy _ t = t
 
--- | Create an empty tableau with a runtime-specified number of qubits
 emptyTableauN :: Int -> SomeTableau
 emptyTableauN n
   | n < 0 = error $ "Invalid qubit count: " ++ show n
@@ -497,68 +647,55 @@ emptyTableauN n
       GHC.TypeNats.SomeNat (proxy :: Proxy n) -> 
         SomeTableau (emptyTableau :: Tableau n Pauli)
 
--- | Run with n qubits
 runWith :: Int -> Clifford a -> IO (SomeTableau, a)
 runWith n (Clifford f) = f (emptyTableauN n)
 
 -- ============================================================================
--- Backward Compatibility Helpers for SomeTableau
+-- PART XIV: BACKWARD COMPATIBILITY HELPERS
 -- ============================================================================
 
--- | Get rows from SomeTableau (for backward compatibility in tests)
 rowsSome :: SomeTableau -> [Pauli]
 rowsSome (SomeTableau tab) = rows tab
 
--- | Get nQubits from SomeTableau
 nQubitsSome :: SomeTableau -> Int
 nQubitsSome (SomeTableau tab) = nQubits tab
 
--- | Get stabilizer from SomeTableau by index
 stabilizerSome :: SomeTableau -> Int -> Maybe Pauli
 stabilizerSome (SomeTableau tab) i = stabilizer tab i
 
--- | Get destabilizer from SomeTableau by index
 destabilizerSome :: SomeTableau -> Int -> Maybe Pauli
 destabilizerSome (SomeTableau tab) i = destabilizer tab i
 
--- | Check validity of SomeTableau
 isValidSome :: SomeTableau -> Bool
 isValidSome (SomeTableau tab) = isValid tab
 
--- | Evolve SomeTableau
 evolveTableauSome :: SomeTableau -> SymplecticGate -> SomeTableau
 evolveTableauSome (SomeTableau tab) g = SomeTableau (evolveTableau tab g)
 
--- | Measure SomeTableau
 measureSome :: SomeTableau -> Pauli -> IO (SomeTableau, MeasurementResult)
 measureSome (SomeTableau tab) p = do
   (tab', res) <- measure tab p
   return (SomeTableau tab', res)
 
--- | Is determinate for SomeTableau
 isDeterminateSome :: SomeTableau -> Pauli -> Bool
 isDeterminateSome (SomeTableau tab) p = isDeterminate tab p
 
--- | Find anti-commuting stabilizer for SomeTableau
 findAntiCommutingStabSome :: SomeTableau -> Pauli -> Maybe Int
 findAntiCommutingStabSome (SomeTableau tab) p = findAntiCommutingStab tab p
 
--- | Compute phase for SomeTableau
 computePhaseSome :: SomeTableau -> Pauli -> Bool
 computePhaseSome (SomeTableau tab) p = computePhase tab p
 
 -- ============================================================================
--- Examples and Helpers
+-- PART XV: EXAMPLES AND HELPERS
 -- ============================================================================
 
--- | Bell state preparation: |00⟩ + |11⟩
 bellCircuit :: Clifford Bool
 bellCircuit = do
-  gate (Local (Hadamard 0))    -- H on qubit 0
-  gate (CNOT 0 1)               -- CNOT 0→1
-  measurePauli (Pauli (bit 0) (bit 0) 0)  -- measure X⊗X (should be +1)
+  gate (Local (Hadamard 0))
+  gate (CNOT 0 1)
+  measurePauli (Pauli (bit 0) (bit 0) 0)
 
--- | Helper definitions
 pauliX :: Int -> Pauli
 pauliX i = Pauli (bit i) 0 0
 
@@ -568,24 +705,37 @@ pauliZ i = Pauli 0 (bit i) 0
 pauliY :: Int -> Pauli
 pauliY i = Pauli (bit i) (bit i) 1
 
+-- | Backward compatibility: symplectic form
+symplecticForm :: Pauli -> Pauli -> Bool
+symplecticForm p1 p2 = not (omegaPauli p1 p2)
+
+-- | Backward compatibility: commute
+commute :: Pauli -> Pauli -> Bool
+commute = commuteG
+
+-- | Backward compatibility: anticommute
+anticommute :: Pauli -> Pauli -> Bool
+anticommute = anticommuteG
+
+-- | Backward compatibility: multiply
+multiply :: Pauli -> Pauli -> Pauli
+multiply = multiplyPauli
+
 -- ============================================================================
--- Backward compatibility: List update operator
+-- PART XVI: UTILITIES
 -- ============================================================================
 
--- | Helper for list update operator (for backward compatibility in tests)
 (//) :: [a] -> [(Int, a)] -> [a]
 xs // [] = xs
 xs // updates = 
-  let -- Sort by index, group, take last of each group (latest update wins)
-      sorted = sortOn fst updates
+  let sorted = sortOn fst updates
       grouped = groupBy ((==) `on` fst) sorted
       finalUpdates = [(i, v) | grp@((i,_):_) <- grouped, let (_,v) = last grp]
-      -- Build result
       go _ [] [] = []
       go i (x:xs) ups@((ui,uv):us)
         | i == ui   = uv : go (i+1) xs us
         | i < ui    = x  : go (i+1) xs ups
-        | otherwise = go i (x:xs) us  -- skip invalid index
-      go i xs [] = xs  -- remaining unchanged
-      go _ [] _ = []   -- updates beyond list length ignored
+        | otherwise = go i (x:xs) us
+      go i xs [] = xs
+      go _ [] _ = []
   in go 0 xs finalUpdates

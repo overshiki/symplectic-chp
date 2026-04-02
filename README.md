@@ -4,19 +4,46 @@ A Haskell implementation of the CHP clifford simulator, **through the lens of sy
 
 ## Overview
 
-This package interprets Aaronson & Gottesman's CHP algorithm through the lens of **symplectic linear algebra over 𝔽₂**, revealing the underlying geometric structure that makes the algorithm work. Rather than treating the tableau as an opaque data structure, we expose it as a **Lagrangian subspace** of a symplectic vector space, with Clifford gates acting as **Sp(2n, 𝔽₂)** transformations.
+This package interprets Aaronson & Gottesman's CHP algorithm through the lens of **symplectic linear algebra over 𝔽₂**, revealing that the CHP simulator is not merely an algorithm but a **computational realization of the Symplectic Basis Theorem**. Rather than treating the tableau as an opaque data structure, we expose it as a **symplectic basis**—a pair of transverse Lagrangian subspaces satisfying the duality condition ω(Dᵢ, Sⱼ) = δᵢⱼ.
 
 Our implementation achieves an exceptional level of mathematical abstraction through **type classes** that mirror the actual geometric hierarchy:
 
 ```
-SymplecticVectorSpace v          -- The ambient space (e.g., Pauli over F_2)
-    ↑
-    └─ LagrangianSubSpace n v    -- Maximal isotropic subspaces
+Group g
+  ↑
+  └─ BinaryCommutationGroup g          -- "commute or anticommute" property
         ↑
-        └─ SymplecticBasis s n v -- Two transverse Lagrangians (Tableau)
+        └─ SymplecticGroup g v         -- group + symplectic structure
+              ↑
+              ├─ Pauli (concrete)
+              │
+              └─ AbelianLagrangianCorrespondence g n v
+                    ↑
+                    ├─ IsotropicSubgroup g n  ⟷  Lagrangian n v
+                    ↑
+                    └─ MaximalAbelianCorrespondence g n v
+                          ↑
+                          └─ Maximal abelian  ⟷  Lagrangian
+
+SymplecticVectorSpace v
+  ↑
+  └─ IsotropicSubSpace s n v
+        ↑
+        └─ LagrangianSubSpace s n v    -- maximal isotropic
+              ↑
+              └─ SymplecticBasisTheorem s n v  -- THE SYMPLECTIC BASIS THEOREM!
+                    ↑
+                    └─ Tableau n v     -- CHP implementation
 ```
 
-For more details about the theory, please refer to [theory](https://overshiki.github.io/symplectic-blog-intuitive/)
+**The key insight**: The `Tableau` type is an instance of `SymplecticBasisTheorem`, meaning it satisfies the three conditions from the theorem:
+1. Stabilizers are isotropic: ω(Sᵢ, Sⱼ) = 0
+2. Destabilizers are isotropic: ω(Dᵢ, Dⱼ) = 0  
+3. Duality: ω(Dᵢ, Sⱼ) = δᵢⱼ
+
+For the complete theoretical treatment and implementation details, see:
+- **[Theory Blog](https://overshiki.github.io/symplectic-blog-intuitive/)** — Mathematical foundations
+- **[Implementation Guide](doc/implement.md)** — Comprehensive technical documentation
 
 ## Features
 
@@ -25,14 +52,34 @@ For more details about the theory, please refer to [theory](https://overshiki.gi
 Our implementation captures the **intrinsic geometric hierarchy** of symplectic geometry:
 
 ```haskell
--- | A symplectic vector space over a field k
+-- | A symplectic vector space (V, ω) over a field k
+-- 
+-- Mathematically, this consists of:
+-- 1. A vector space V over a field k
+-- 2. A symplectic form ω: V × V → k that is:
+--    - Bilinear
+--    - Alternating: ω(v, v) = 0 for all v
+--    - Non-degenerate: if ω(v, w) = 0 for all w, then v = 0
 class Eq (Field v) => SymplecticVectorSpace v where
   type Field v :: Type
+  fieldZero    :: proxy v -> Field v  -- Zero element of field
   omega        :: v -> v -> Field v   -- The symplectic form ω
   addV         :: v -> v -> v         -- Vector addition
   zeroV        :: v                   -- Zero vector
-  commuteV     :: v -> v -> Bool      -- ω(v₁,v₂) = 0
+  negateV      :: v -> v              -- Additive inverse
 
+-- Note: "Commute" is NOT part of this abstraction!
+-- It is specific to the Pauli group where ω = 0 means "commute"
+```
+
+The key insight is that `SymplecticVectorSpace` captures the **pure mathematical structure** without physical interpretation. The type class has exactly the operations needed:
+- `omega` — the symplectic form ω(v₁, v₂)
+- `addV`, `zeroV`, `negateV` — vector space operations
+- `fieldZero` — zero element of the field (needed for isotropy checks)
+
+The **higher-level classes** build on this foundation:
+
+```haskell
 -- | Isotropic subspace: ω vanishes on all pairs
 class SymplecticVectorSpace v => IsotropicSubSpace s n v where
   toBasis       :: s n v -> Vector n v
@@ -112,11 +159,40 @@ The n-qubit Pauli group forms a vector space (𝔽₂)^(2n) equipped with a cano
 instance SymplecticVectorSpace Pauli where
   type Field Pauli = Bool  -- F_2
   
+  -- | Zero element of F_2
+  fieldZero _ = False
+  
+  -- | Symplectic inner product ω: Pauli × Pauli → F_2
+  -- ω(P₁, P₂) = x₁·z₂ + z₁·x₂ (mod 2)
   omega (Pauli x1 z1 _) (Pauli x2 z2 _) = 
     odd (popCount ((x1 .&. z2) `xor` (z1 .&. x2)))
   
-  addV  = multiplyPauli    -- Group multiplication is vector addition
-  zeroV = Pauli 0 0 0      -- Identity
+  -- | Pauli group multiplication is vector addition in (F_2)^(2n)
+  addV = multiplyPauli
+  
+  -- | Identity element (zero vector)
+  zeroV = Pauli 0 0 0
+  
+  -- | Inverse (negation)
+  negateV (Pauli x z r) = Pauli x z ((4 - r) `mod` 4)
+```
+
+**Physical interpretation (separate from the abstraction):**
+
+The symplectic form ω on Pauli operators has a physical interpretation:
+- `ω(P₁, P₂) = 0` ⟺ P₁ and P₂ **commute**
+- `ω(P₁, P₂) = 1` ⟺ P₁ and P₂ **anticommute**
+
+But these are **derived concepts**, not part of the `SymplecticVectorSpace` class:
+
+```haskell
+-- | For Pauli specifically: commute iff ω = 0
+commuteV :: (SymplecticVectorSpace v, Field v ~ Bool) => v -> v -> Bool
+commuteV v1 v2 = not (omega v1 v2)
+
+-- | For Pauli specifically: anticommute iff ω = 1  
+anticommuteV :: (SymplecticVectorSpace v, Field v ~ Bool) => v -> v -> Bool
+anticommuteV v1 v2 = omega v1 v2
 ```
 
 The **symplectic inner product** captures commutation:
@@ -128,12 +204,33 @@ The **symplectic inner product** captures commutation:
 ω = 1 ⟺ {P₁, P₂} = 0  (anti-commute)
 ```
 
-### Symplectic Basis Theorem
+### The Symplectic Basis Theorem
 
-A stabilizer state is a **maximal isotropic subspace**: an n-dimensional subspace where ω vanishes identically. The CHP tableau encodes such a subspace via a **symplectic basis**:
+**Theorem**: Let $(V, \omega)$ be a symplectic vector space of dimension $2n$. Then there exists a basis $\{e_1, \ldots, e_n, f_1, \ldots, f_n\}$ such that:
+- $\omega(e_i, e_j) = 0$ (the $e$'s span a Lagrangian)
+- $\omega(f_i, f_j) = 0$ (the $f$'s span a Lagrangian)  
+- $\omega(e_i, f_j) = \delta_{ij}$ (**duality**)
 
-- **Stabilizers** S₀,...,Sₙ₋₁: isotropic generators (ω(Sᵢ,Sⱼ)=0)
-- **Destabilizers** D₀,...,Dₙ₋₁: dual basis with ω(Dᵢ,Sⱼ)=δᵢⱼ
+**The CHP Tableau IS a Symplectic Basis:**
+
+In our implementation, the `Tableau` type **is** a symplectic basis:
+- **Stabilizers** S₀,...,Sₙ₋₁ = {e₁,...,eₙ} (first Lagrangian)
+- **Destabilizers** D₀,...,Dₙ₋₁ = {f₁,...,fₙ} (second Lagrangian)
+- **Duality condition**: ω(Dᵢ, Sⱼ) = δᵢⱼ
+
+This is encoded in the `SymplecticBasisTheorem` type class:
+
+```haskell
+class SymplecticBasisTheorem s n v where
+  firstLagrangian  :: s n v -> Lagrangian n v   -- e₁,...,eₙ (stabilizers)
+  secondLagrangian :: s n v -> Lagrangian n v   -- f₁,...,fₙ (destabilizers)
+  verifyDuality    :: s n v -> Bool             -- ω(eᵢ,fⱼ) = δᵢⱼ
+
+instance SymplecticBasisTheorem Tableau n v where
+  firstLagrangian  = stabLagrangian
+  secondLagrangian = destabLagrangian
+  verifyDuality    = -- checks ω(Dᵢ,Sⱼ) = δᵢⱼ
+```
 
 **Implementation:**
 
@@ -183,6 +280,8 @@ Measuring Pauli P distinguishes two cases geometrically:
 The measurement outcome is determined by the **symplectic inner product structure**, not by quantum mechanical postulates alone.
 
 ## Implementation
+
+For a comprehensive technical treatment of the implementation, see **[Implementation Guide](doc/implement.md)** — which covers the complete mathematical hierarchy, the connection between group theory and symplectic geometry, and how the Symplectic Basis Theorem gives rise to the CHP tableau structure.
 
 ### Core Abstractions
 
