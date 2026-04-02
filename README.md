@@ -93,10 +93,11 @@ class SymplecticVectorSpace v => IsotropicSubSpace s n v where
 class IsotropicSubSpace Lagrangian n v => LagrangianSubSpace n v
 
 -- | Symplectic basis: two transverse Lagrangians with duality
-class SymplecticBasis s n v where
-  getStabLagrangian   :: s n v -> Lagrangian n v   -- Stabilizers S
-  getDestabLagrangian :: s n v -> Lagrangian n v   -- Destabilizers D
-  verifyDuality       :: s n v -> Bool             -- ω(Dᵢ,Sⱼ) = δᵢⱼ
+-- This type class represents the Symplectic Basis Theorem
+class (KnownNat n, SymplecticVectorSpace v) => SymplecticBasisTheorem s n v where
+  firstLagrangian  :: s n v -> Lagrangian n v   -- {e₁,...,eₙ} (stabilizers)
+  secondLagrangian :: s n v -> Lagrangian n v   -- {f₁,...,fₙ} (destabilizers)
+  verifyDuality    :: s n v -> Bool             -- ω(eᵢ,fⱼ) = δᵢⱼ
 ```
 
 **Benefits of this abstraction:**
@@ -125,9 +126,10 @@ data Tableau (n :: Nat) v where
     , destabLagrangian :: Lagrangian n v   -- D₀..Dₙ₋₁
     } -> Tableau n v
 
-instance SymplecticBasis Tableau n v where
-  getStabLagrangian   = stabLagrangian
-  getDestabLagrangian = destabLagrangian
+instance (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) 
+         => SymplecticBasisTheorem Tableau n v where
+  firstLagrangian  = stabLagrangian
+  secondLagrangian = destabLagrangian
 ```
 
 **Type-level guarantees:**
@@ -233,27 +235,29 @@ class SymplecticBasisTheorem s n v where
   secondLagrangian :: s n v -> Lagrangian n v   -- f₁,...,fₙ (destabilizers)
   verifyDuality    :: s n v -> Bool             -- ω(eᵢ,fⱼ) = δᵢⱼ
 
-instance SymplecticBasisTheorem Tableau n v where
-  firstLagrangian  = stabLagrangian
-  secondLagrangian = destabLagrangian
-  verifyDuality    = -- checks ω(Dᵢ,Sⱼ) = δᵢⱼ
+instance (KnownNat n, SymplecticVectorSpace v, Field v ~ Bool) 
+         => SymplecticBasisTheorem Tableau n v where
+  firstLagrangian  = stabLagrangian   -- S = {e₁,...,eₙ}
+  secondLagrangian = destabLagrangian -- D = {f₁,...,fₙ}
 ```
 
 **Implementation:**
 
 ```haskell
 -- | Verify the symplectic basis conditions
-verifyDuality :: SymplecticBasis s n v => s n v -> Bool
+verifyDuality :: SymplecticBasisTheorem s n v => s n v -> Bool
 verifyDuality s =
-  let d  = getDestabLagrangian s
-      st = getStabLagrangian s
+  let d  = secondLagrangian s
+      st = firstLagrangian s
+      vd = lagrangianBasis d
+      vs = lagrangianBasis st
   in VS.and $ VS.imap (\i dᵢ ->
        VS.and $ VS.imap (\j sⱼ ->
          if i == j 
-         then anticommuteV dᵢ sⱼ  -- ω(Dᵢ,Sᵢ) = 1
-         else commuteV dᵢ sⱼ      -- ω(Dᵢ,Sⱼ) = 0 (i≠j)
-       ) (lagrangianBasis st)
-     ) (lagrangianBasis d)
+         then omega dᵢ sⱼ == True  -- ω(fᵢ,eᵢ) = 1
+         else omega dᵢ sⱼ == False -- ω(fᵢ,eⱼ) = 0 (i≠j)
+       ) vs
+     ) vd
 ```
 
 ### Clifford = Symplectic
@@ -294,22 +298,22 @@ For a comprehensive technical treatment of the implementation, see **[Implementa
 
 ```
 SymplecticCHP
-├── SymplecticVectorSpace  -- Type class for (V, ω)
-├── IsotropicSubSpace      -- Type class for isotropic subspaces
-├── LagrangianSubSpace     -- Type class for maximal isotropic
-├── SymplecticBasis        -- Type class for (S, D) pairs
-├── Lagrangian n v         -- Data type: Lagrangian subspace
-├── Tableau n v            -- Data type: Symplectic basis instance
-├── Gates                  -- Sp(2n,𝔽₂) transformations
-├── Measurement            -- Isotropic/anti-isotropic decomposition
-└── Monad                  -- Stateful evolution
+├── SymplecticVectorSpace   -- Type class for (V, ω)
+├── IsotropicSubSpace       -- Type class for isotropic subspaces
+├── LagrangianSubSpace      -- Type class for maximal isotropic
+├── SymplecticBasisTheorem  -- Type class for symplectic bases (the theorem!)
+├── Lagrangian n v          -- Data type: Lagrangian subspace
+├── Tableau n v             -- Data type: Symplectic basis instance
+├── Gates                   -- Sp(2n,𝔽₂) transformations
+├── Measurement             -- Isotropic/anti-isotropic decomposition
+└── Monad                   -- Stateful evolution
 ```
 
 ### Methodology: Type-Driven Design
 
 Our implementation follows **type-driven development** principles:
 
-1. **Encode mathematical structure in types**: The hierarchy `SymplecticVectorSpace` → `IsotropicSubSpace` → `LagrangianSubSpace` → `SymplecticBasis` mirrors the geometric hierarchy.
+1. **Encode mathematical structure in types**: The hierarchy `SymplecticVectorSpace` → `IsotropicSubSpace` → `LagrangianSubSpace` → `SymplecticBasisTheorem` mirrors the geometric hierarchy.
 
 2. **Make illegal states unrepresentable**: 
    - `Tableau n` ensures exactly `n` stabilizers and `n` destabilizers
@@ -319,7 +323,7 @@ Our implementation follows **type-driven development** principles:
 3. **Separate concerns via type classes**:
    - **Geometric operations** (`omega`, `addV`) in `SymplecticVectorSpace`
    - **Subspace operations** (`toBasis`, `verifyIsotropy`) in `IsotropicSubSpace`
-   - **Basis operations** (`verifyDuality`) in `SymplecticBasis`
+   - **Basis operations** (`verifyDuality`) in `SymplecticBasisTheorem`
 
 4. **Generic algorithms**: Write functions that work over any `SymplecticVectorSpace`, enabling future extensions.
 
