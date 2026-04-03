@@ -1,0 +1,4 @@
+# Expected: X measurement on |+⟩ gives +1 deterministically
+# After H|0⟩ = |+⟩, X measurement should be +1
+measurement_outcomes: [#t]
+stabilizers: ["+X"]

@@ -1,0 +1,6 @@
+# Expected outcomes for Bell state
+# The two measurements should always be the same (both +1 or both -1)
+# due to the ZZ stabilizer
+measurements_correlated: true
+stabilizers: ["+ZZ", "+XX"]
+destabilizers: ["+XI", "+IX"]

@@ -70,6 +70,8 @@ Type-level naturals (`Vector n`, `Finite n`) give us:
 
 ## Quick Start
 
+### Library Usage
+
 ```haskell
 -- Create a Bell state
 bellCircuit :: Clifford Bool
@@ -84,11 +86,117 @@ main = do
   print outcome  -- True (+1 eigenvalue)
 ```
 
+### STIM Circuit Files
+
+The package includes a command-line tool to simulate [STIM](https://github.com/quantumlib/Stim) circuit files:
+
+```bash
+# Build and run
+cabal build
+cabal run symplectic-chp -- circuit.stim
+```
+
+Create a STIM circuit file (e.g., `bell.stim`):
+
+```
+# Bell state preparation
+H 0
+CNOT 0 1
+M 0 1
+```
+
+Run the simulation:
+
+```bash
+$ cabal run symplectic-chp -- bell.stim
+
+========================================
+  CHP Simulation Results
+========================================
+
+Measurements performed: 2
+Measurement outcomes:
+  M0: +1 (|0⟩ or |+⟩)
+  M1: +1 (|0⟩ or |+⟩)
+
+Number of qubits: 2
+Tableau valid: True
+
+Stabilizers (generators of the stabilizer group):
+  S0: +Z
+  S1: +ZZ
+
+Destabilizers (dual to stabilizers):
+  D0: +XX
+  D1: +IX
+```
+
+#### Supported STIM Features
+
+| Feature | Status |
+|---------|--------|
+| **Gates** | H, S, CNOT, CZ, X, Y, Z, SWAP, SQRT_Z (S), S_DAG |
+| **Measurements** | M (Z-basis), MX (X-basis), MY (Y-basis), MZ (Z-basis) |
+| **Gates (decomposed)** | CZ, X, Y, Z, SWAP are decomposed into H/S/CNOT |
+
+#### Unsupported Features (will report error)
+
+- Non-Clifford gates (T, RX, RY, RZ, SQRT_X, etc.)
+- Reset operations (R, MR, MRX, etc.)
+- Pauli product measurements (MPP)
+- Noise channels (X_ERROR, DEPOLARIZE1, etc.)
+- REPEAT blocks
+- Annotations (QUBIT_COORDS, DETECTOR, etc.)
+
+#### Command-Line Options
+
+```bash
+symplectic-chp [OPTIONS] <input.stim>
+
+Options:
+  -h, --help         Show help message
+  -v                 Enable verbose output
+  --seed N           Use specific random seed for reproducibility
+  --no-tableau       Don't show final tableau
+```
+
+#### Example: GHZ State
+
+```
+# ghz.stim
+H 0
+CNOT 0 1
+CNOT 0 2
+M 0 1 2
+```
+
+```bash
+$ cabal run symplectic-chp -- ghz.stim
+```
+
+#### Test Circuits
+
+Example circuits are available in `data/stim-circuits/`:
+
+```bash
+# List available test circuits
+ls data/stim-circuits/*.stim
+
+# Run a test circuit
+cabal run symplectic-chp -- data/stim-circuits/bell-state.stim
+```
+
+Each circuit includes:
+- `.stim` - The circuit file
+- `.expected` - Expected results for automated testing
+- `.derive.md` - Mathematical derivation of the circuit's behavior
+
 ## Learn More
 
 - **[Theory Blog](https://overshiki.github.io/symplectic-blog-intuitive/)** — Why the Pauli group is symplectic
 - **[Implementation Guide](doc/implement.md)** — The complete mathematical hierarchy
 - **[Performance Analysis](doc/overhead.md)** — Why the abstractions are free
+- **[STIM Integration](doc/stim-plan.md)** — Architecture for STIM circuit support
 
 ## Testing
 
@@ -96,7 +204,23 @@ main = do
 cabal test
 ```
 
-All 58 tests pass, verifying symplectic form properties, tableau validity, gate composition, and measurement correctness.
+All **68 tests** pass:
+- **58 unit tests** — verifying symplectic form properties, tableau validity, gate composition, and measurement correctness
+- **10 integration tests** — STIM circuit files testing Bell states, GHZ states, gate decompositions, and error handling
+
+### Test Circuits
+
+Example STIM circuits are provided in `data/stim-circuits/`:
+
+| Circuit | Description |
+|---------|-------------|
+| `bell-state.stim` | Bell state \|Φ⁺⟩ preparation |
+| `ghz-state.stim` | GHZ state preparation |
+| `swap-gate.stim` | SWAP gate decomposition |
+| `stabilizer-cycle.stim` | X gate via HSSH decomposition |
+| `unsupported-rx.stim` | Error handling for non-Clifford gates |
+
+The test suite automatically runs these circuits and verifies their outputs against expected results.
 
 ## References
 

@@ -1,0 +1,7 @@
+# Bell State Preparation
+# Expected: |Φ⁺⟩ = (|00⟩ + |11⟩)/√2
+# Measurement outcomes: correlated (always same)
+H 0
+CNOT 0 1
+M 0
+M 1

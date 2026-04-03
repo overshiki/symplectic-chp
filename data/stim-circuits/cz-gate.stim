@@ -1,0 +1,7 @@
+# CZ gate test
+# CZ|++⟩ creates phase entanglement
+H 0
+H 1
+CZ 0 1
+MX 0
+MX 1

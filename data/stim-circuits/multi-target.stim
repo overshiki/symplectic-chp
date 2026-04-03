@@ -1,0 +1,8 @@
+# Multi-target gate test
+# Apply H to multiple qubits at once
+H 0
+H 1
+H 2
+MX 0
+MX 1
+MX 2

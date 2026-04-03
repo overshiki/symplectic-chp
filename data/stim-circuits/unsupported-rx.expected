@@ -1,0 +1,2 @@
+# Expected: Translation error for RX gate
+error_expected: "Unsupported gate"

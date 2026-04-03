@@ -1,0 +1,8 @@
+# GHZ State Preparation
+# Expected: |GHZ⟩ = (|000⟩ + |111⟩)/√2
+H 0
+CNOT 0 1
+CNOT 0 2
+M 0
+M 1
+M 2

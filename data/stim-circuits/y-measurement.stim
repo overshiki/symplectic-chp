@@ -1,0 +1,8 @@
+# Y-basis measurement test
+# S|0⟩ = |0⟩ (eigenstate of Z), but Y|0⟩ = i|1⟩
+# Need to prepare Y eigenstate
+H 0
+S 0
+H 0
+S 0
+MY 0

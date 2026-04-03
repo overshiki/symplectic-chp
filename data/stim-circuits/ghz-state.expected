@@ -1,0 +1,4 @@
+# Expected outcomes for GHZ state
+# All three measurements should be the same
+measurements_correlated: true
+stabilizers: ["+ZZZ", "+ZIZ", "+IXX"]

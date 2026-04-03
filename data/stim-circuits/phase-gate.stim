@@ -1,0 +1,7 @@
+# Phase gate test
+# S†X S = Y, S†Z S = Z
+# Prepare |+⟩, apply S twice (=Z), measure Z
+H 0
+S 0
+S 0
+M 0

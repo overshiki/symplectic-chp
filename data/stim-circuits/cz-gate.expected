@@ -1,0 +1,3 @@
+# Expected: CZ creates entanglement, measurements are random
+# X measurements on CZ|++⟩ are actually anti-correlated, not correlated
+# Just check validity

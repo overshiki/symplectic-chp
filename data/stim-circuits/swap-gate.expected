@@ -1,0 +1,4 @@
+# Expected: After SWAP, qubit 0 should be |1⟩ and qubit 1 should be |0⟩
+# |01⟩ -> SWAP -> |10⟩, so M0=-1, M1=+1
+measurement_outcomes: [#f, #t]
+stabilizers: ["-ZI", "+IZ"]

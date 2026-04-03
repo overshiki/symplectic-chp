@@ -1,0 +1,3 @@
+# Expected: All X measurements should give +1
+# H|0⟩ = |+⟩, and |+⟩ is eigenstate of X with +1
+measurement_outcomes: [#t, #t, #t]

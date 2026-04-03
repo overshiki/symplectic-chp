@@ -1,0 +1,2 @@
+# Expected: SS = Z, so H|0⟩ = |+⟩, Z|+⟩ = |−⟩, Z measurement is random
+# Actually: S²|+⟩ should give phase but measurement in Z is still random

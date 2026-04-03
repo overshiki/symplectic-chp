@@ -1,0 +1,4 @@
+# Expected: X |0⟩ = |1⟩, so Z measurement gives -1
+# HSSH decomposes to X gate
+measurement_outcomes: [#f]
+stabilizers: ["-Z"]
