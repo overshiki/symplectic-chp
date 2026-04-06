@@ -200,6 +200,8 @@ Each circuit includes:
 
 ## Testing
 
+### Haskell Test Suite
+
 ```bash
 cabal test
 ```
@@ -207,6 +209,16 @@ cabal test
 All **68 tests** pass:
 - **58 unit tests** — verifying symplectic form properties, tableau validity, gate composition, and measurement correctness
 - **10 integration tests** — STIM circuit files testing Bell states, GHZ states, gate decompositions, and error handling
+
+### Validation with Google Stim
+
+Cross-validate against the reference [Google Stim](https://github.com/quantumlib/stim) implementation:
+
+```bash
+cd data
+pip install stim
+python3 validate-with-stim.py
+```
 
 ### Test Circuits
 

@@ -1,4 +1,8 @@
-# Expected: After SWAP, qubit 0 should be |1⟩ and qubit 1 should be |0⟩
-# |01⟩ -> SWAP -> |10⟩, so M0=-1, M1=+1
-measurement_outcomes: [#f, #t]
-stabilizers: ["-ZI", "+IZ"]
+# swap-gate: X 1; SWAP 0 1 exchanges |01⟩ → |10⟩
+# X = H·S·S·H; SWAP = CNOT(0,1)·CNOT(1,0)·CNOT(0,1)
+# Z measurements are deterministic: M0=-1, M1=+1
+deterministic: true
+measurement_outcomes: [-1, +1]
+post_measurement_tableau:
+  stabilizers: ["+IZ", "-ZI"]
+  destabilizers: ["+IX", "+XI"]

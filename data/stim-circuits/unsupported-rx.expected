@@ -1,2 +1,2 @@
-# Expected: Translation error for RX gate
-error_expected: "Unsupported gate"
+# unsupported-rx: RX is non-Clifford and cannot be simulated in CHP
+error_expected: "Unsupported gate: RX (non-Clifford)"

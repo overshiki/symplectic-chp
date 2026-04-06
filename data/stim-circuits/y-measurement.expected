@@ -1,2 +1,17 @@
-# Expected: The circuit prepares an eigenstate of Y
-# Measurement outcome depends on randomness
+# y-measurement: H 0; S 0; H 0; S 0 prepares |+⟩
+# Y measurement is random
+deterministic: false
+cases:
+  - probability: 0.5
+    measurement_outcomes: [+1]
+    post_measurement_tableau:
+      stabilizers: ["+Y"]
+      destabilizers: ["+X"]
+  - probability: 0.5
+    measurement_outcomes: [-1]
+    post_measurement_tableau:
+      stabilizers: ["-Y"]
+      destabilizers: ["+X"]
+pre_measurement_tableau:
+  stabilizers: ["+X"]
+  destabilizers: ["+Y"]

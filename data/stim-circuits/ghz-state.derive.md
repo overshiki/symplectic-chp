@@ -1,6 +1,7 @@
-# GHZ State Derivation
+# GHZ State Preparation: Mathematical Derivation
 
-## Circuit
+## Circuit Specification
+
 ```
 H 0
 CNOT 0 1
@@ -10,48 +11,136 @@ M 1
 M 2
 ```
 
-## Mathematical Derivation
+## Objective
 
-### Step 1: Initial State
+Prepare the 3-qubit GHZ state $|GHZ\rangle = \frac{1}{\sqrt{2}}(|000\rangle + |111\rangle)$ and verify tripartite entanglement.
+
+---
+
+## Step-by-Step Derivation
+
+### Initial State
+
 $$|\psi_0\rangle = |000\rangle$$
 
-### Step 2: Hadamard on Qubit 0
-$$|\psi_1\rangle = |+\rangle \otimes |00\rangle = \frac{|000\rangle + |100\rangle}{\sqrt{2}}$$
+**Tableau:**
+```yaml
+stabilizers: ["+ZII", "+IZI", "+IIZ"]
+destabilizers: ["+XII", "+IXI", "+IIX"]
+```
 
-### Step 3: First CNOT(0, 1)
-$$\text{CNOT}(|000\rangle) = |000\rangle$$
-$$\text{CNOT}(|100\rangle) = |110\rangle$$
+### Step 1: Hadamard on Qubit 0
 
-$$|\psi_2\rangle = \frac{|000\rangle + |110\rangle}{\sqrt{2}}$$
+$$|\psi_1\rangle = |+\rangle_0 \otimes |00\rangle_{12} = \frac{1}{\sqrt{2}}(|000\rangle + |100\rangle)$$
 
-### Step 4: Second CNOT(0, 2)
-$$\text{CNOT}(|000\rangle) = |000\rangle$$
-$$\text{CNOT}(|110\rangle) = |111\rangle$$
+**Tableau after H:**
+```yaml
+stabilizers: ["+XII", "+IZI", "+IIZ"]
+destabilizers: ["+ZII", "+IXI", "+IIX"]
+```
 
-$$|\psi_3\rangle = \frac{|000\rangle + |111\rangle}{\sqrt{2}} = |\text{GHZ}\rangle$$
+### Step 2: CNOT(0, 1)
 
-This is the 3-qubit GHZ state (Greenberger-Horne-Zeilinger).
+| Input | Output |
+|-------|--------|
+| $\|000\rangle$ | $\|000\rangle$ |
+| $\|100\rangle$ | $\|110\rangle$ |
 
-## Stabilizer Analysis
+$$|\psi_2\rangle = \frac{1}{\sqrt{2}}(|000\rangle + |110\rangle)$$
 
-The GHZ state has stabilizers:
-- $Z \otimes Z \otimes I$  ($Z_0 Z_1 = +1$)
-- $Z \otimes I \otimes Z$  ($Z_0 Z_2 = +1$)  
-- $X \otimes X \otimes X$  ($X_0 X_1 X_2 = +1$)
+**Tableau after CNOT(0,1):**
+```yaml
+stabilizers: ["+XXI", "+ZZI", "+IIZ"]
+destabilizers: ["+ZII", "+IXI", "+IIX"]
+```
 
-From the first two, we get $I \otimes Z \otimes Z^{-1} = Z_1 Z_2 = +1$ as well.
+### Step 3: CNOT(0, 2)
 
-## Measurement Properties
+| Input | Output |
+|-------|--------|
+| $\|000\rangle$ | $\|000\rangle$ |
+| $\|110\rangle$ | $\|111\rangle$ |
 
-When measuring all three qubits in Z-basis:
-- All three outcomes are perfectly correlated
-- Either all +1 (|000⟩) or all -1 (|111⟩)
-- This follows from the stabilizer $Z_0 Z_1 = Z_0 Z_2 = Z_1 Z_2 = +1$
+$$|\psi_3\rangle = \frac{1}{\sqrt{2}}(|000\rangle + |111\rangle) = |GHZ\rangle$$
 
-## Comparison with Bell State
+**Tableau after CNOT(0,2) (pre-measurement):**
+```yaml
+stabilizers: ["+XXX", "+ZZI", "+ZIZ"]
+destabilizers: ["+ZII", "+IXI", "+IIX"]
+```
 
-The GHZ state generalizes the Bell state to 3 qubits:
-- Bell: $\frac{|00\rangle + |11\rangle}{\sqrt{2}}$
-- GHZ: $\frac{|000\rangle + |111\rangle}{\sqrt{2}}$
+---
 
-Both exhibit maximal entanglement, but GHZ has tripartite entanglement that cannot be reduced to bipartite entanglement.
+## Entanglement Properties
+
+### Tripartite Entanglement
+
+The GHZ state exhibits **genuine multipartite entanglement**:
+
+$$|GHZ\rangle \neq |\phi\rangle_0 \otimes |\psi\rangle_{12}$$
+
+**Reduced Density Matrix (trace out qubit 2):**
+$$\rho_{01} = \text{Tr}_2(|GHZ\rangle\langle GHZ|) = \frac{1}{2}(|00\rangle\langle 00| + |11\rangle\langle 11|)$$
+
+This is a **mixed state** (classical correlation only), demonstrating that the entanglement is truly tripartite.
+
+---
+
+## Measurement Analysis
+
+### Z-Basis Measurements
+
+The state in computational basis:
+$$|GHZ\rangle = \frac{|000\rangle + |111\rangle}{\sqrt{2}}$$
+
+**Possible outcomes:**
+- $(+1, +1, +1)$ with probability $\frac{1}{2}$
+- $(-1, -1, -1)$ with probability $\frac{1}{2}$
+
+**Case 1: Outcomes [+1, +1, +1]**
+```yaml
+probability: 0.5
+measurement_outcomes: [+1, +1, +1]
+post_measurement_tableau:
+  stabilizers: ["+ZII", "+ZZI", "+ZIZ"]
+  destabilizers: ["+XXX", "+IXI", "+IIX"]
+```
+
+**Case 2: Outcomes [-1, -1, -1]**
+```yaml
+probability: 0.5
+measurement_outcomes: [-1, -1, -1]
+post_measurement_tableau:
+  stabilizers: ["-ZII", "-ZZI", "-ZIZ"]
+  destabilizers: ["+XXX", "+IXI", "+IIX"]
+```
+
+**Correlation Structure:**
+$$\langle Z_i Z_j \rangle = +1 \quad \forall i \neq j$$
+
+Any two qubits are perfectly correlated.
+
+---
+
+## Expected Outcome
+
+| Property | Expected Value |
+|----------|---------------|
+| **Measurement Correlation** | All three outcomes equal |
+| **Pre-measurement stabilizers** | `+XXX`, `+ZZI`, `+ZIZ` |
+| **Pre-measurement destabilizers** | `+ZII`, `+IXI`, `+IIX` |
+| **Tableau Validity** | True |
+| **P(all +1)** | 0.5 |
+| **P(all -1)** | 0.5 |
+| **Any mixed outcome** | 0 |
+
+**Key Property:** $\Pr(M_0 = M_1 = M_2) = 1$ (perfect 3-way correlation)
+
+**Comparison with Bell State:**
+
+| Feature | Bell State | GHZ State |
+|---------|-----------|-----------|
+| Qubits | 2 | 3 |
+| Form | $\frac{|00\rangle+|11\rangle}{\sqrt{2}}$ | $\frac{|000\rangle+|111\rangle}{\sqrt{2}}$ |
+| Entanglement | Bipartite | Tripartite |
+| Stabilizers | 2 | 3 |

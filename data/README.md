@@ -2,20 +2,31 @@
 
 This directory contains test circuits for the STIM-to-CHP simulator.
 
+## Formal Verification
+
+The `.expected` test case files are derived from the [symplectic-pauli](https://github.com/overshiki/symplectic-pauli) Agda formalization project, which provides machine-checked proofs of the CHP algorithm based on the Symplectic Basis Theorem.
+
+### Agda Formalization Highlights
+
+- **Symplectic Basis Theorem**: Complete proof that every symplectic vector space admits a canonical basis
+- **Fundamental Correspondence**: Proven equivalence between Pauli commutation and symplectic form
+- **Tableau as Symplectic Basis**: Formal verification that the CHP tableau satisfies geometric constraints
+- **Verified Circuit Examples**: All 10 test circuits have mechanically verified proofs in `CircuitExamples.agda`
+
+The test expectations represent the ground truth from these formal proofs, validated against the Haskell implementation.
+
 ## Directory Structure
 
 ```
 data/
 ├── README.md           # This file
-├── test-stim.rkt       # Racket test script
 └── stim-circuits/      # Test circuit files
     ├── *.stim          # Circuit definition files
-    └── *.expected      # Expected results
+    ├── *.expected      # Expected results
+    └── *.derive.md     # Mathematical derivations
 ```
 
 ## Running Tests
-
-### Method 1: Haskell Test Suite (Recommended)
 
 The STIM circuits are automatically tested as part of the cabal test suite:
 
@@ -26,28 +37,6 @@ cabal test
 This runs all tests including:
 - 58 original Haskell unit tests
 - 10 STIM circuit integration tests
-
-### Method 2: Racket Script
-
-Alternative test runner using Racket:
-
-#### Prerequisites
-
-- Racket (>= 7.0)
-- Built symplectic-chp executable (`cabal build`)
-
-#### Run All Tests
-
-```bash
-cd data
-./test-stim.rkt
-```
-
-#### With Verbose Output
-
-```bash
-./test-stim.rkt -v
-```
 
 ## Test Circuit Format
 
@@ -66,48 +55,74 @@ M 1
 
 ### Expected Files (.expected)
 
-Comment-based format specifying expected results:
+YAML-based format specifying expected results:
 
-```
-# Comments start with #
-measurements_correlated: true    # All measurements should be equal
-measurement_outcomes: [#t, #f]   # Exact expected outcomes
-stabilizers: ["+ZZ", "+XX"]      # Expected stabilizers
+```yaml
+# Deterministic circuit
+deterministic: true
+measurement_outcomes: [+1, +1]
+post_measurement_tableau:
+  stabilizers: ["+XX", "+ZZ"]
+  destabilizers: ["+ZI", "+IX"]
+
+# Random circuit with cases
+deterministic: false
+cases:
+  - probability: 0.5
+    measurement_outcomes: [+1, +1]
+    post_measurement_tableau:
+      stabilizers: ["+ZI", "+ZZ"]
+      destabilizers: ["+XX", "+IX"]
+  - probability: 0.5
+    measurement_outcomes: [-1, -1]
+    post_measurement_tableau:
+      stabilizers: ["-ZI", "-ZZ"]
+      destabilizers: ["+XX", "+IX"]
+pre_measurement_tableau:
+  stabilizers: ["+XX", "+ZZ"]
+  destabilizers: ["+ZI", "+IX"]
 ```
 
 ### Derivation Files (.derive.md)
 
-Mathematical derivations explaining the quantum mechanics behind each circuit. These document:
-- State evolution through each gate
-- Stabilizer transformations
-- Measurement outcome predictions
-- Relevant quantum mechanics theory
+Formal mathematical derivations with:
+- **LaTeX-formatted equations** for all quantum states and operators
+- **Step-by-step state evolution** through each gate
+- **Tableau state at each step** (stabilizers and destabilizers)
+- **Stabilizer analysis** with verification tables
+- **Bloch sphere representations** where applicable
+- **Expected outcome tables** summarizing deterministic/random results
+- **Physical interpretations** of the quantum phenomena
+
+Each derivation includes:
+1. Circuit specification and objective
+2. Theoretical background (gate definitions, identities)
+3. Rigorous mathematical derivation
+4. Tableau evolution at each circuit step
+5. Stabilizer evolution table
+6. Measurement analysis with probabilities
+7. Summary table of expected outcomes
 
 Example: See `bell-state.derive.md` for the Bell state preparation derivation.
 
-## Supported Test Checks
-
-1. **Tableau validity** - Always checked
-2. **Measurement correlations** - Checked if `measurements_correlated: true`
-3. **Exact outcomes** - Checked if `measurement_outcomes: [...]` specified
-
 ## Test Circuits
 
-| Circuit | Description | Checks |
-|---------|-------------|--------|
-| `bell-state.stim` | Bell state (\|Φ⁺⟩) | Correlated measurements |
-| `ghz-state.stim` | GHZ state | Correlated measurements |
-| `single-hadamard.stim` | Single qubit H gate | Exact outcome |
-| `stabilizer-cycle.stim` | X = HSSH decomposition | Exact outcome |
-| `cz-gate.stim` | CZ gate | Validity only |
-| `swap-gate.stim` | SWAP gate | Exact outcome |
-| `multi-target.stim` | Multiple H gates | Exact outcomes |
-| `y-measurement.stim` | Y-basis measurement | Validity only |
-| `phase-gate.stim` | S gate test | Validity only |
+| Circuit | Description | Type |
+|---------|-------------|------|
+| `bell-state.stim` | Bell state (\|Φ⁺⟩) | Random (2 cases) |
+| `ghz-state.stim` | GHZ state | Random (2 cases) |
+| `single-hadamard.stim` | Single qubit H gate | Deterministic |
+| `stabilizer-cycle.stim` | X = HSSH decomposition | Deterministic |
+| `cz-gate.stim` | CZ gate | Random (4 cases) |
+| `swap-gate.stim` | SWAP gate | Deterministic |
+| `multi-target.stim` | Multiple H gates | Deterministic |
+| `y-measurement.stim` | Y-basis measurement | Random (2 cases) |
+| `phase-gate.stim` | S gate test | Random (2 cases) |
 | `unsupported-rx.stim` | Error handling test | Error expected |
 
 ## Adding New Tests
 
 1. Create a `.stim` file in `stim-circuits/`
-2. Create a `.expected` file with expected results
-3. Run `./test-stim.rkt` to verify
+2. Create a `.expected` file with expected results following the YAML format
+3. Optionally create a `.derive.md` file with mathematical derivation
+4. Run `cabal test` to verify

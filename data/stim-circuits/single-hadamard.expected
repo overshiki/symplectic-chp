@@ -1,4 +1,6 @@
-# Expected: X measurement on |+⟩ gives +1 deterministically
-# After H|0⟩ = |+⟩, X measurement should be +1
-measurement_outcomes: [#t]
-stabilizers: ["+X"]
+# single-hadamard: H|0⟩ = |+⟩, MX gives deterministic +1
+deterministic: true
+measurement_outcomes: [+1]
+pre_measurement_tableau:
+  stabilizers: ["+X"]
+  destabilizers: ["+Z"]

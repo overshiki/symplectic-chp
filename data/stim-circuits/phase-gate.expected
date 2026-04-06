@@ -1,2 +1,17 @@
-# Expected: SS = Z, so H|0⟩ = |+⟩, Z|+⟩ = |−⟩, Z measurement is random
-# Actually: S²|+⟩ should give phase but measurement in Z is still random
+# phase-gate: H 0; S 0; S 0 = H·Z|0⟩ = |−⟩
+# Z measurement is random
+deterministic: false
+cases:
+  - probability: 0.5
+    measurement_outcomes: [+1]
+    post_measurement_tableau:
+      stabilizers: ["+Z"]
+      destabilizers: ["-X"]
+  - probability: 0.5
+    measurement_outcomes: [-1]
+    post_measurement_tableau:
+      stabilizers: ["-Z"]
+      destabilizers: ["-X"]
+pre_measurement_tableau:
+  stabilizers: ["-X"]
+  destabilizers: ["+Z"]

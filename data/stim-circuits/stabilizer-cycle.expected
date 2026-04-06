@@ -1,4 +1,7 @@
-# Expected: X |0⟩ = |1⟩, so Z measurement gives -1
-# HSSH decomposes to X gate
-measurement_outcomes: [#f]
-stabilizers: ["-Z"]
+# stabilizer-cycle: H 0; S 0; S 0; H 0 = HSSH = X
+# X|0⟩ = |1⟩, so Z measurement gives deterministic -1
+deterministic: true
+measurement_outcomes: [-1]
+post_measurement_tableau:
+  stabilizers: ["-Z"]
+  destabilizers: ["+X"]

@@ -1,4 +1,17 @@
-# Expected outcomes for GHZ state
-# All three measurements should be the same
-measurements_correlated: true
-stabilizers: ["+ZZZ", "+ZIZ", "+IXX"]
+# ghz-state: H 0; CNOT 0 1; CNOT 0 2 creates |GHZ⟩
+# All three Z measurements are equal (all +1 or all -1)
+deterministic: false
+cases:
+  - probability: 0.5
+    measurement_outcomes: [+1, +1, +1]
+    post_measurement_tableau:
+      stabilizers: ["+ZII", "+ZZI", "+ZIZ"]
+      destabilizers: ["+XXX", "+IXI", "+IIX"]
+  - probability: 0.5
+    measurement_outcomes: [-1, -1, -1]
+    post_measurement_tableau:
+      stabilizers: ["-ZII", "-ZZI", "-ZIZ"]
+      destabilizers: ["+XXX", "+IXI", "+IIX"]
+pre_measurement_tableau:
+  stabilizers: ["+XXX", "+ZZI", "+ZIZ"]
+  destabilizers: ["+ZII", "+IXI", "+IIX"]

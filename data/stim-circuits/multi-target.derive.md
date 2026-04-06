@@ -1,6 +1,7 @@
-# Multi-Target Gates Derivation
+# Multi-Target Gates: Mathematical Derivation
 
-## Circuit
+## Circuit Specification
+
 ```
 H 0
 H 1
@@ -10,59 +11,149 @@ MX 1
 MX 2
 ```
 
-## Mathematical Derivation
+## Objective
 
-### Step 1: Initial State
+Demonstrate independent evolution of multiple qubits and verify product state structure.
+
+---
+
+## State Evolution
+
+### Initial State
+
 $$|\psi_0\rangle = |000\rangle$$
 
-### Step 2: Hadamard on All Qubits
-$$|\psi_1\rangle = |+\rangle^{\otimes 3} = \frac{1}{\sqrt{8}}\sum_{x=0}^{7}|x\rangle$$
+**Tableau:**
+```yaml
+stabilizers: ["+ZII", "+IZI", "+IIZ"]
+destabilizers: ["+XII", "+IXI", "+IIX"]
+```
+
+### Step 1: Hadamard on All Qubits
+
+Since $H^{\otimes 3} = H \otimes H \otimes H$:
+
+$$\begin{aligned}
+|\psi_1\rangle &= H|0\rangle \otimes H|0\rangle \otimes H|0\rangle \\
+&= |+\rangle \otimes |+\rangle \otimes |+\rangle \\
+&= |+++\rangle
+\end{aligned}$$
+
+**Tableau after H⊗H⊗H (pre-measurement):**
+```yaml
+stabilizers: ["+XII", "+IXI", "+IIX"]
+destabilizers: ["+ZII", "+IZI", "+IIZ"]
+```
+
+### Product State Form
+
+$$|+++\rangle = \frac{1}{\sqrt{8}}\sum_{x=0}^{7}|x\rangle$$
 
 Explicitly:
 $$|\psi_1\rangle = \frac{|000\rangle + |001\rangle + |010\rangle + |011\rangle + |100\rangle + |101\rangle + |110\rangle + |111\rangle}{\sqrt{8}}$$
 
-This is the uniform superposition over all 3-bit strings.
+**Key Property:** This is a **product state**, not entangled.
 
-## Product State Structure
+---
 
-Importantly:
-$$|\psi_1\rangle = |+\rangle \otimes |+\rangle \otimes |+\rangle$$
+## Product vs. Entangled States
 
-This is a **product state**, not an entangled state!
+### Factorization Test
 
-Each qubit is in the state $|+\rangle$ independently.
+$$|+++\rangle = |+\rangle_0 \otimes |+\rangle_1 \otimes |+\rangle_2$$
 
-## X-Basis Measurement
+**Separability:** The state can be written as a tensor product of single-qubit states.
 
-Since $|+\rangle$ is the +1 eigenstate of X:
+**Reduced Density Matrix:**
+$$\rho_0 = \text{Tr}_{12}(|+++\rangle\langle+++|) = |+\rangle\langle+|$$
+
+This is a **pure state**, confirming no entanglement.
+
+### Contrast with GHZ State
+
+| Property | $|+++\rangle$ | $|GHZ\rangle$ |
+|----------|---------------|---------------|
+| **Form** | Product $\bigotimes_i |+\rangle_i$ | Entangled $\frac{\|000\rangle+\|111\rangle}{\sqrt{2}}$ |
+| **Entanglement** | None | Tripartite |
+| **Reduced ρ** | Pure | Mixed |
+| **Stabilizers** | Independent | Correlated |
+
+---
+
+## Stabilizer Analysis
+
+### Independent Stabilizers
+
+The state $|+++\rangle$ has stabilizer generators:
+
+$$\{+X_0, +X_1, +X_2\} = \{+XII, +IXI, +IIX\}$$
+
+**Verification:**
+$$X_i |+++\rangle = |+++\rangle \quad \forall i$$
+
+Each stabilizer acts on only one qubit, confirming the product structure.
+
+### Stabilizer Group
+
+All stabilizers are of the form:
+$$g = (+/-)X^{a_0} \otimes X^{a_1} \otimes X^{a_2}, \quad a_i \in \{0, 1\}$$
+
+Total: $2^3 = 8$ stabilizer elements.
+
+---
+
+## Measurement Analysis
+
+### X-Basis Eigenstates
+
+For each qubit:
 $$X|+\rangle = +|+\rangle$$
 
-Measuring each qubit in the X-basis gives outcome **+1** deterministically.
+The state $|+\rangle$ is the +1 eigenstate of X.
 
-## Stabilizer Representation
+### Measurement Outcomes
 
-The state |+++⟩ has stabilizers:
-- $+X \otimes I \otimes I$
-- $+I \otimes X \otimes I$
-- $+I \otimes I \otimes X$
+**Outcome Probabilities:**
+$$\Pr(M_i = +1) = |\langle+|+\rangle|^2 = 1$$
+$$\Pr(M_i = -1) = |\langle-|+\rangle|^2 = 0$$
 
-Or compactly: $\{+X_0, +X_1, +X_2\}$
+All three measurements give **deterministic** outcome +1.
 
-## Why This Test Matters
+**Joint Probability:**
+$$\Pr(M_0=+1, M_1=+1, M_2=+1) = 1$$
 
-This circuit tests:
-1. **Multi-target gate support** - STIM allows `H 0 1 2` syntax
-2. **Independent evolution** - Each qubit evolves separately
-3. **Product state handling** - CHP correctly handles non-entangled states
-4. **Deterministic measurements** - All outcomes should be +1
+**Post-measurement tableau:**
+```yaml
+deterministic: true
+measurement_outcomes: [+1, +1, +1]
+post_measurement_tableau:
+  stabilizers: ["+XII", "+IXI", "+IIX"]
+  destabilizers: ["+ZII", "+IZI", "+IIZ"]
+```
 
-## Comparison with GHZ
+---
 
-| Property | This Circuit | GHZ Circuit |
-|----------|--------------|-------------|
-| Entanglement | No (product) | Yes (genuine) |
-| Measurements | Deterministic | Correlated random |
-| Stabilizers | Independent | Entangled |
-| Gate depth | 1 layer H | 3 layers (H, CNOT, CNOT) |
+## Expected Outcome
 
-The CHP simulator handles both cases correctly through the symplectic formalism.
+| Property | Expected Value |
+|----------|---------------|
+| **Final State** | $\|+++\rangle = \|+\rangle^{\otimes 3}$ |
+| **State Type** | Product state (not entangled) |
+| **Pre-measurement stabilizers** | `+XII`, `+IXI`, `+IIX` |
+| **Pre-measurement destabilizers** | `+ZII`, `+IZI`, `+IIZ` |
+| **Measurement 0** | +1 (deterministic) |
+| **Measurement 1** | +1 (deterministic) |
+| **Measurement 2** | +1 (deterministic) |
+| **Tableau Validity** | True |
+| **P(+1,+1,+1)** | 1.0 |
+| **All other outcomes** | 0.0 |
+
+**Key Property:** Multi-target gate syntax `H 0 1 2` applies independent single-qubit gates.
+
+**Physical Interpretation:**
+Each qubit evolves independently in its own Bloch sphere:
+- Initial: All at north pole $|0\rangle$
+- After H: All at +X axis $|+\rangle$
+- X measurement: Deterministic +1 for each
+
+This tests the CHP simulator's handling of **product states** and **multi-target gate syntax**.

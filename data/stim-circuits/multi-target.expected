@@ -1,3 +1,7 @@
-# Expected: All X measurements should give +1
-# H|0⟩ = |+⟩, and |+⟩ is eigenstate of X with +1
-measurement_outcomes: [#t, #t, #t]
+# multi-target: H on all qubits creates |+++⟩
+# All MX measurements are deterministic +1
+deterministic: true
+measurement_outcomes: [+1, +1, +1]
+post_measurement_tableau:
+  stabilizers: ["+XII", "+IXI", "+IIX"]
+  destabilizers: ["+ZII", "+IZI", "+IIZ"]

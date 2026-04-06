@@ -1,3 +1,28 @@
-# Expected: CZ creates entanglement, measurements are random
-# X measurements on CZ|++⟩ are actually anti-correlated, not correlated
-# Just check validity
+# cz-gate: H 0; H 1; CZ 0 1 creates phase-entangled |++⟩ state
+# CZ = H(1)·CNOT(0,1)·H(1)
+# MX measurements are independent and random
+deterministic: false
+cases:
+  - probability: 0.25
+    measurement_outcomes: [+1, +1]
+    post_measurement_tableau:
+      stabilizers: ["+IX", "+XI"]
+      destabilizers: ["+XZ", "+ZX"]
+  - probability: 0.25
+    measurement_outcomes: [+1, -1]
+    post_measurement_tableau:
+      stabilizers: ["-IX", "+XI"]
+      destabilizers: ["+XZ", "+ZX"]
+  - probability: 0.25
+    measurement_outcomes: [-1, +1]
+    post_measurement_tableau:
+      stabilizers: ["+IX", "-XI"]
+      destabilizers: ["+XZ", "+ZX"]
+  - probability: 0.25
+    measurement_outcomes: [-1, -1]
+    post_measurement_tableau:
+      stabilizers: ["-IX", "-XI"]
+      destabilizers: ["+XZ", "+ZX"]
+pre_measurement_tableau:
+  stabilizers: ["+XZ", "+ZX"]
+  destabilizers: ["+ZI", "+IZ"]

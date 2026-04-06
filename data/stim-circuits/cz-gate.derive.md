@@ -1,6 +1,7 @@
-# CZ Gate Derivation
+# CZ Gate: Mathematical Derivation
 
-## Circuit
+## Circuit Specification
+
 ```
 H 0
 H 1
@@ -9,85 +10,153 @@ MX 0
 MX 1
 ```
 
-## Mathematical Derivation
+## Objective
 
-### Step 1: Initial State
+Demonstrate CZ gate creates phase entanglement and verify its decomposition.
+
+---
+
+## CZ Gate Decomposition
+
+### Theorem
+$$CZ(c, t) = H(t) \cdot CNOT(c, t) \cdot H(t)$$
+
+### Proof
+The CZ gate applies phase -1 when both qubits are |1⟩:
+$$CZ|ab\rangle = (-1)^{a \cdot b}|ab\rangle$$
+
+The circuit $H_t \cdot CNOT_{c,t} \cdot H_t$:
+
+1. $H_t$ transforms target from Z to X basis
+2. $CNOT_{c,t}$ creates controlled-X in X basis → controlled-phase in Z basis
+3. $H_t$ transforms back to Z basis
+
+**Verification via truth table:**
+
+| $\|ab\rangle$ | After $H_t$ | After CNOT | After $H_t$ | CZ Target |
+|-------------|-------------|-----------|-------------|-----------|
+| $\|00\rangle$ | $\|0+\rangle$ | $\|0+\rangle$ | $\|00\rangle$ | $+\|00\rangle$ |
+| $\|01\rangle$ | $\|0-\rangle$ | $\|0-\rangle$ | $\|01\rangle$ | $+\|01\rangle$ |
+| $\|10\rangle$ | $\|1+\rangle$ | $\|1+\rangle$ | $\|10\rangle$ | $+\|10\rangle$ |
+| $\|11\rangle$ | $\|1-\rangle$ | $\|0-\rangle$ | $-\|11\rangle$ | $-\|11\rangle$ |
+
+Both give the same phase pattern. **Q.E.D.**
+
+---
+
+## State Evolution
+
+### Initial State
+
 $$|\psi_0\rangle = |00\rangle$$
 
-### Step 2: Hadamard on Both Qubits
+**Tableau:**
+```yaml
+stabilizers: ["+ZI", "+IZ"]
+destabilizers: ["+XI", "+IX"]
+```
+
+### Step 1: Hadamard on Both Qubits
+
 $$|\psi_1\rangle = |+\rangle \otimes |+\rangle = \frac{1}{2}(|00\rangle + |01\rangle + |10\rangle + |11\rangle)$$
 
-### Step 3: CZ Gate
-The controlled-Z gate applies a phase of -1 when both qubits are |1⟩:
-$$\text{CZ}|ab\rangle = (-1)^{a \cdot b}|ab\rangle$$
+**Tableau after H⊗H:**
+```yaml
+stabilizers: ["+XI", "+IX"]
+destabilizers: ["+ZI", "+IZ"]
+```
 
-Applying to each term:
-- CZ|00⟩ = +|00⟩
-- CZ|01⟩ = +|01⟩
-- CZ|10⟩ = +|10⟩
-- CZ|11⟩ = -|11⟩
+### Step 2: CZ Gate
 
-Therefore:
+Applying $CZ|ab\rangle = (-1)^{ab}|ab\rangle$:
+
 $$|\psi_2\rangle = \frac{1}{2}(|00\rangle + |01\rangle + |10\rangle - |11\rangle)$$
 
-## CZ Decomposition
+**Tableau after CZ (pre-measurement):**
+```yaml
+stabilizers: ["+XZ", "+ZX"]
+destabilizers: ["+ZI", "+IZ"]
+```
 
-In the CHP simulator, CZ is decomposed as:
-$$\text{CZ}(c, t) = H(t) \cdot \text{CNOT}(c, t) \cdot H(t)$$
+**Conjugation:**
+- $X \otimes I \rightarrow X \otimes Z$
+- $I \otimes X \rightarrow Z \otimes X$
 
-Verification:
-- CNOT creates phase entanglement in X-basis
-- H transforms between X and Z bases
-- The combination creates the controlled-phase
+---
 
-## X-Basis Measurement Analysis
+## Measurement Analysis
 
-The final state can be rewritten in X-basis:
-$$|\psi_2\rangle = \frac{1}{\sqrt{2}}(|++\rangle + |--\rangle)$$
+### X-Basis Measurement
 
-Wait, let's verify:
-$$|++\rangle = \frac{1}{2}(|00\rangle + |01\rangle + |10\rangle + |11\rangle)$$
-$$|--\rangle = \frac{1}{2}(|00\rangle - |01\rangle - |10\rangle + |11\rangle)$$
+The stabilizers $g_1 = XZ$ and $g_2 = ZX$ do not commute with $X \otimes I$ or $I \otimes X$ individually:
 
-So:
-$$\frac{|++\rangle + |--\rangle}{\sqrt{2}} = \frac{1}{2\sqrt{2}}(2|00\rangle + 0|01\rangle + 0|10\rangle + 2|11\rangle) = \frac{|00\rangle + |11\rangle}{\sqrt{2}}$$
+$$[X \otimes I, X \otimes Z] = 0 \quad \text{(commute)}$$
+$$[X \otimes I, Z \otimes X] \neq 0 \quad \text{(anticommute)}$$
 
-This is different from our state. Let's try another approach.
+**Result:** Measurements are **random** and **correlated**.
 
-Actually, our state is:
-$$|\psi_2\rangle = \frac{|00\rangle + |01\rangle + |10\rangle - |11\rangle}{2}$$
+### Correlation Structure
 
-In terms of |±⟩:
-$$|0\rangle = \frac{|+\rangle + |-\rangle}{\sqrt{2}}, \quad |1\rangle = \frac{|+\rangle - |-\rangle}{\sqrt{2}}$$
+The product $X \otimes X$ commutes with both stabilizers:
+$$[X \otimes X, X \otimes Z] = [X \otimes X, Z \otimes X] = 0$$
 
-Computing each basis state:
-- |00⟩ → |++⟩
-- |01⟩ → |+-⟩  
-- |10⟩ → |-+⟩
-- |11⟩ → |--⟩
+Therefore:
+$$\langle X \otimes X \rangle = \pm 1$$
 
-So:
-$$|\psi_2\rangle = \frac{|++\rangle + |+-\rangle + |-+\rangle - |--\rangle}{2}$$
+The sign depends on the random outcomes of individual measurements.
 
-This is not a product state - measuring X on each qubit gives correlated outcomes.
+**Case 1: Outcomes [+1, +1]**
+```yaml
+probability: 0.25
+measurement_outcomes: [+1, +1]
+post_measurement_tableau:
+  stabilizers: ["+IX", "+XI"]
+  destabilizers: ["+XZ", "+ZX"]
+```
 
-## Measurement Correlations
+**Case 2: Outcomes [+1, -1]**
+```yaml
+probability: 0.25
+measurement_outcomes: [+1, -1]
+post_measurement_tableau:
+  stabilizers: ["-IX", "+XI"]
+  destabilizers: ["+XZ", "+ZX"]
+```
 
-The state $|\psi_2\rangle$ is actually an eigenstate of $X \otimes X$:
-$$(X \otimes X)|\psi_2\rangle = \frac{|10\rangle + |11\rangle + |00\rangle - |01\rangle}{2} \neq \pm|\psi_2\rangle$$
+**Case 3: Outcomes [-1, +1]**
+```yaml
+probability: 0.25
+measurement_outcomes: [-1, +1]
+post_measurement_tableau:
+  stabilizers: ["+IX", "-XI"]
+  destabilizers: ["+XZ", "+ZX"]
+```
 
-Wait, let me recalculate. Actually:
-$$(X \otimes X)|ab\rangle = |\bar{a}\bar{b}\rangle$$
+**Case 4: Outcomes [-1, -1]**
+```yaml
+probability: 0.25
+measurement_outcomes: [-1, -1]
+post_measurement_tableau:
+  stabilizers: ["-IX", "-XI"]
+  destabilizers: ["+XZ", "+ZX"]
+```
 
-So:
-$$(X \otimes X)|\psi_2\rangle = \frac{|11\rangle + |10\rangle + |01\rangle - |00\rangle}{2} \neq \pm|\psi_2\rangle$$
+---
 
-The X measurements are **not perfectly correlated** - they show quantum correlations but not the simple correlation of the Bell state.
+## Expected Outcome
 
-## Key Insight
+| Property | Expected Value |
+|----------|---------------|
+| **Final State** | $\frac{1}{2}(\|00\rangle + \|01\rangle + \|10\rangle - \|11\rangle)$ |
+| **Pre-measurement stabilizers** | `+XZ`, `+ZX` |
+| **Pre-measurement destabilizers** | `+ZI`, `+IZ` |
+| **Measurement Type** | Random |
+| **Tableau Validity** | True |
+| **P(+1,+1)** | ≈ 0.25 |
+| **P(+1,-1)** | ≈ 0.25 |
+| **P(-1,+1)** | ≈ 0.25 |
+| **P(-1,-1)** | ≈ 0.25 |
 
-This circuit demonstrates:
-1. CZ creates phase entanglement
-2. Measuring in X-basis reveals quantum correlations
-3. Unlike Bell state, correlations are not perfect
-4. The CHP simulator correctly handles the gate decomposition
+**Key Property:** The state is entangled with maximal entropy for reduced density matrices.
+
+**Note:** Unlike Bell state, X measurements are not perfectly correlated. The test only verifies tableau validity, not specific outcomes.

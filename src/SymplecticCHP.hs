@@ -510,7 +510,8 @@ applyGate (Local (Hadamard i)) (Pauli x z r) =
 applyGate (Local (Phase i)) (Pauli x z r) =
   let xi = testBit x i
       z' = if xi then z `xor` bit i else z
-      r' = (r + if xi && not (testBit z i) then 1 else 0) `mod` 4
+      -- Phase update: X->Y (+1), Y->-X (+1), Z->Z (0)
+      r' = (r + if xi then 1 else 0) `mod` 4
   in Pauli x z' r'
 
 applyGate (CNOT c t) (Pauli x z r) =

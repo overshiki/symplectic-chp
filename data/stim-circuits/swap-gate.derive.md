@@ -1,6 +1,7 @@
-# SWAP Gate Derivation
+# SWAP Gate: Mathematical Derivation
 
-## Circuit
+## Circuit Specification
+
 ```
 X 1
 SWAP 0 1
@@ -8,68 +9,134 @@ M 0
 M 1
 ```
 
-## Mathematical Derivation
+## Objective
 
-### Step 1: Initial State
-$$|\psi_0\rangle = |00\rangle$$
+Verify SWAP gate exchanges qubit states and prove SWAP = CNOT₁₂ ∘ CNOT₂₁ ∘ CNOT₁₂.
 
-### Step 2: X Gate on Qubit 1
-$$|\psi_1\rangle = |01\rangle$$
+---
 
-### Step 3: SWAP Gate
-The SWAP gate exchanges the states of two qubits:
-$$\text{SWAP}|a,b\rangle = |b,a\rangle$$
+## SWAP Gate Decomposition
 
-Therefore:
-$$|\psi_2\rangle = \text{SWAP}|01\rangle = |10\rangle$$
-
-## SWAP Decomposition
-
-In the CHP simulator, SWAP is decomposed as three CNOT gates:
+### Theorem
 $$\text{SWAP}(a, b) = \text{CNOT}(a, b) \cdot \text{CNOT}(b, a) \cdot \text{CNOT}(a, b)$$
 
-Verification:
-1. CNOT(a,b): |01⟩ → |01⟩ (control is 0, no change)
-2. CNOT(b,a): |01⟩ → |11⟩ (control is 1, flip a)
-3. CNOT(a,b): |11⟩ → |10⟩ (control is 1, flip b)
+### Proof via Truth Table
 
-Result: |10⟩ ✓
+| Step | State | After CNOT(a,b) | After CNOT(b,a) | After CNOT(a,b) |
+|------|-------|-----------------|-----------------|-----------------|
+| 1 | $\|00\rangle$ | $\|00\rangle$ | $\|00\rangle$ | $\|00\rangle$ |
+| 2 | $\|01\rangle$ | $\|01\rangle$ | $\|11\rangle$ | $\|10\rangle$ |
+| 3 | $\|10\rangle$ | $\|11\rangle$ | $\|01\rangle$ | $\|01\rangle$ |
+| 4 | $\|11\rangle$ | $\|10\rangle$ | $\|10\rangle$ | $\|11\rangle$ |
 
-## Why Three CNOTs?
+**Result mapping:**
+- $|00\rangle \rightarrow |00\rangle$ ✓
+- $|01\rangle \rightarrow |10\rangle$ ✓
+- $|10\rangle \rightarrow |01\rangle$ ✓
+- $|11\rangle \rightarrow |11\rangle$ ✓
 
-The SWAP decomposition uses the identity:
-$$\text{SWAP} = \text{CNOT}_{ab} \cdot \text{CNOT}_{ba} \cdot \text{CNOT}_{ab}$$
+**Q.E.D.** The circuit swaps qubit states.
 
-Geometric interpretation:
-- First CNOT: create entanglement
-- Second CNOT (reversed): transfer state  
-- Third CNOT: disentangle
+### Verification for |01⟩
 
-## Measurement
+1. **CNOT(0,1)**: Control=0, no flip → $|01\rangle$
+2. **CNOT(1,0)**: Control=1, flip qubit 0 → $|11\rangle$
+3. **CNOT(0,1)**: Control=1, flip qubit 1 → $|10\rangle$
 
-Final state: $|10\rangle$
+Result: $|01\rangle \rightarrow |10\rangle$ ✓
 
-Z-basis measurements:
-- Qubit 0: |1⟩ → measurement outcome **-1**
-- Qubit 1: |0⟩ → measurement outcome **+1**
+---
 
-## Stabilizer Analysis
+## State Evolution
 
-Initial state |01⟩ has stabilizers:
-- $+Z_0$ (qubit 0 in |0⟩)
-- $-Z_1$ (qubit 1 in |1⟩)
+### Initial State
 
-After SWAP(|01⟩) = |10⟩:
-- $-Z_0$ (qubit 0 now in |1⟩)
-- $+Z_1$ (qubit 1 now in |0⟩)
+$$|\psi_0\rangle = |00\rangle$$
 
-The SWAP exchanges both the state and the stabilizers:
+**Tableau:**
+```yaml
+stabilizers: ["+ZI", "+IZ"]
+destabilizers: ["+XI", "+IX"]
+```
+
+### Step 1: X Gate on Qubit 1
+
+$$X = \begin{pmatrix} 0 & 1 \\ 1 & 0 \end{pmatrix}$$
+
+$$|\psi_1\rangle = |01\rangle$$
+
+**Tableau after X₁:**
+```yaml
+stabilizers: ["+ZI", "-IZ"]
+destabilizers: ["+XI", "+IX"]
+```
+
+### Step 2: SWAP(0, 1)
+
+$$\text{SWAP}|01\rangle = |10\rangle$$
+
+**Final state before measurement:**
+$$|\psi_2\rangle = |10\rangle$$
+
+**Tableau after SWAP (post-measurement):**
+```yaml
+stabilizers: ["+IZ", "-ZI"]
+destabilizers: ["+IX", "+XI"]
+```
+
+### SWAP Action on Pauli Operators
+
+The SWAP gate exchanges Pauli operators:
+$$\text{SWAP} \cdot X_0 \cdot \text{SWAP}^\dagger = X_1$$
 $$\text{SWAP} \cdot Z_0 \cdot \text{SWAP}^\dagger = Z_1$$
+$$\text{SWAP} \cdot X_1 \cdot \text{SWAP}^\dagger = X_0$$
 $$\text{SWAP} \cdot Z_1 \cdot \text{SWAP}^\dagger = Z_0$$
 
-## General Property
+This is equivalent to exchanging rows in the CHP tableau.
 
-SWAP is a Clifford gate that exchanges Pauli operators:
-- SWAP: $X_a \leftrightarrow X_b$, $Z_a \leftrightarrow Z_b$
+---
 
-This makes it particularly simple in the CHP tableau representation - it just swaps the corresponding rows.
+## Measurement Analysis
+
+### Final State
+
+$$|\psi_2\rangle = |10\rangle = |1\rangle_0 \otimes |0\rangle_1$$
+
+### Z-Basis Measurements
+
+| Qubit | State | Z Eigenvalue | Outcome |
+|-------|-------|-------------|---------|
+| 0 | $\|1\rangle$ | -1 | **-1** |
+| 1 | $\|0\rangle$ | +1 | **+1** |
+
+**Expected result:**
+```yaml
+deterministic: true
+measurement_outcomes: [-1, +1]
+post_measurement_tableau:
+  stabilizers: ["+IZ", "-ZI"]
+  destabilizers: ["+IX", "+XI"]
+```
+
+---
+
+## Expected Outcome
+
+| Property | Expected Value |
+|----------|---------------|
+| **Circuit Identity** | SWAP = CNOT₁₂ ∘ CNOT₂₁ ∘ CNOT₁₂ |
+| **Final State** | $\|10\rangle$ |
+| **Measurement 0** | -1 (deterministic) |
+| **Measurement 1** | +1 (deterministic) |
+| **Final Stabilizers** | `+IZ`, `-ZI` |
+| **Final Destabilizers** | `+IX`, `+XI` |
+| **Tableau Validity** | True |
+| **P(M₀=-1, M₁=+1)** | 1.0 |
+| **All other outcomes** | 0.0 |
+
+**Key Property:** The SWAP exchanges both the quantum state and the stabilizer assignments between qubits.
+
+**Geometric Interpretation:**
+- Initial: Qubit 0 at |0⟩ (north pole), Qubit 1 at |1⟩ (south pole)
+- After SWAP: Qubit 0 at |1⟩ (south pole), Qubit 1 at |0⟩ (north pole)
+- The SWAP is its own inverse: SWAP² = I

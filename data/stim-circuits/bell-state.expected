@@ -1,6 +1,17 @@
-# Expected outcomes for Bell state
-# The two measurements should always be the same (both +1 or both -1)
-# due to the ZZ stabilizer
-measurements_correlated: true
-stabilizers: ["+ZZ", "+XX"]
-destabilizers: ["+XI", "+IX"]
+# bell-state: H 0; CNOT 0 1 creates |Φ⁺⟩
+# Z measurements are perfectly correlated (both +1 or both -1)
+deterministic: false
+cases:
+  - probability: 0.5
+    measurement_outcomes: [+1, +1]
+    post_measurement_tableau:
+      stabilizers: ["+ZI", "+ZZ"]
+      destabilizers: ["+XX", "+IX"]
+  - probability: 0.5
+    measurement_outcomes: [-1, -1]
+    post_measurement_tableau:
+      stabilizers: ["-ZI", "-ZZ"]
+      destabilizers: ["+XX", "+IX"]
+pre_measurement_tableau:
+  stabilizers: ["+XX", "+ZZ"]
+  destabilizers: ["+ZI", "+IX"]
