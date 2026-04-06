@@ -59,9 +59,33 @@ SymplecticVectorSpace v
 
 The code *is* the mathematics.
 
+## Mathematical Soundness: Formally Verified
+
+The mathematical foundations of this implementation have been **machine-checked** in the [symplectic-pauli](https://github.com/overshiki/symplectic-pauli) Agda formalization project.
+
+### What Does This Mean?
+
+Every theorem underlying this codebase has been formally proven:
+
+| Theorem | Status | Agda Proof |
+|---------|--------|------------|
+| **Symplectic Basis Theorem** | ✅ Complete | `symplecticBasisTheorem` |
+| **Fundamental Correspondence** | ✅ Complete | Pauli commutation ⟺ symplectic form |
+| **Tableau as Symplectic Basis** | ✅ Complete | Duality conditions verified |
+| **All Circuit Examples** | ✅ Verified | 10/10 test circuits proven correct |
+
+The Agda formalization translates our Haskell type class hierarchy into dependent type theory, providing **compile-time proof** that:
+- Stabilizers are isotropic (ω(Sᵢ, Sⱼ) = 0)
+- Destabilizers are isotropic (ω(Dᵢ, Dⱼ) = 0)  
+- Duality holds (ω(Dᵢ, Sⱼ) = δᵢⱼ)
+- Gate conjugations preserve the symplectic form
+- Measurement outcomes match quantum mechanical predictions
+
+> **Why this matters**: While Haskell gives us runtime verification via `verifyDuality`, Agda provides **mathematical certainty** at the type level. The test expectations in this repository are derived from these formal proofs.
+
 ### Minimal Overhead, Maximum Safety
 
-This mathematical rigor comes with **< 5% runtime overhead**. GHC's optimizer eliminates abstraction costs through inlining, while `Vector`-based storage improves cache locality over traditional lists.
+The mathematical rigor of our haskell chp implementation comes with **< 5% runtime overhead**. GHC's optimizer eliminates abstraction costs through inlining, while `Vector`-based storage improves cache locality over traditional lists.
 
 Type-level naturals (`Vector n`, `Finite n`) give us:
 - Compile-time dimensional checking
@@ -196,7 +220,8 @@ Each circuit includes:
 - **[Theory Blog](https://overshiki.github.io/symplectic-blog-intuitive/)** — Why the Pauli group is symplectic
 - **[Implementation Guide](doc/implement.md)** — The complete mathematical hierarchy
 - **[Performance Analysis](doc/overhead.md)** — Why the abstractions are free
-- **[STIM Integration](doc/stim-plan.md)** — Architecture for STIM circuit support
+- **[STIM Parser Implementation](doc/stim-parse-impl.md)** — STIM circuit file parsing and simulation
+- **[Agda Formalization](https://github.com/overshiki/symplectic-pauli)** — Machine-checked proofs of all theorems (symplectic-pauli)
 
 ## Testing
 
@@ -210,15 +235,6 @@ All **68 tests** pass:
 - **58 unit tests** — verifying symplectic form properties, tableau validity, gate composition, and measurement correctness
 - **10 integration tests** — STIM circuit files testing Bell states, GHZ states, gate decompositions, and error handling
 
-### Validation with Google Stim
-
-Cross-validate against the reference [Google Stim](https://github.com/quantumlib/stim) implementation:
-
-```bash
-cd data
-pip install stim
-python3 validate-with-stim.py
-```
 
 ### Test Circuits
 
