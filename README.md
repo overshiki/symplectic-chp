@@ -262,6 +262,70 @@ Each circuit includes:
 - `.expected` - Expected results for automated testing
 - `.derive.md` - Mathematical derivation of the circuit's behavior
 
+### Verifying LargeTableau Correctness
+
+We provide a comprehensive verification suite to validate the `LargeTableau` implementation against known quantum states:
+
+```bash
+# Build the verification executable
+cabal build verify-large-tableau
+
+# Run with default settings (10,000 qubits for Bell pairs test)
+cabal run verify-large-tableau
+
+# Run with custom qubit counts
+cabal run verify-large-tableau -- --bell-pairs=5000 --rep-code=1000 --random=50
+
+# Quick test with smaller circuits
+cabal run verify-large-tableau -- --bell-pairs=100 --rep-code=100 --random=10
+```
+
+#### Verification Tests
+
+| Test | Description | Qubits | Verification Method |
+|------|-------------|--------|---------------------|
+| **Bell Pairs** | Creates N/2 independent \|Φ⁺⟩ states | Configurable (default 10,000) | Stabilizer validity, pair-wise commutation |
+| **Repetition Code** | Creates \|+⋯+⟩ GHZ-like state | Configurable (default 1,000) | X₀Xᵢ stabilizer properties |
+| **Phase Identity** | Verifies S² = Z algebra | 100 | Eigenvalue verification |
+| **Random Circuits** | Property-based fuzzing | 100 | Tableau validity preservation |
+| **Performance** | Benchmarks gate throughput | 100-10,000 | Timing measurements |
+
+#### Example Output
+
+```
+========================================
+  LargeTableau Verification Suite
+========================================
+Configuration:
+  Bell pairs test: 10000 qubits
+  Rep code test: 1000 qubits
+  Random circuits: 100
+
+=== Test 1: Pairwise Bell States ===
+Creating 5000 Bell pairs with 10000 qubits...
+Circuit creation time: 0.23s
+Tableau valid: True
+Sampled stabilizers commute: True
+Stabilizer count: 10000 (expected: 10000)
+
+=== Test 5: Performance Benchmark ===
+Benchmarking 10000 qubits:
+  Creation: 0.01s
+  100 Hadamards: 0.15s
+  100 CNOTs: 0.32s
+  Tableau valid: True
+  Estimated memory: 2500 KB
+
+========================================
+  Summary
+========================================
+Total time: 2.34s
+
+✅ ALL TESTS PASSED
+```
+
+These tests ensure that `LargeTableau` produces correct results for arbitrary qubit counts by validating against analytically known quantum states.
+
 ## Learn More
 
 - **[Theory Blog](https://overshiki.github.io/symplectic-blog-intuitive/)** — Why the Pauli group is symplectic
