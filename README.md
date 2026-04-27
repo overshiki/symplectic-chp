@@ -92,6 +92,53 @@ Type-level naturals (`Vector n`, `Finite n`) give us:
 - O(1) indexing with bounds guarantees
 - No out-of-bounds errors at runtime
 
+## Arbitrary Qubit Support
+
+In addition to the standard `Tableau n` (optimized for up to 64 qubits using `Word64`), we now provide `LargeTableau` for **arbitrary qubit counts** using chunked bit-vector storage.
+
+### Standard API (≤ 64 qubits, Word64-optimized)
+
+```haskell
+import SymplecticCHP
+
+-- Type-safe, compile-time sized (fast for small circuits)
+bellState :: Tableau 2
+bellState = 
+  applyGate (CNOT 0 1) $
+  applyGate (Local (Hadamard 0)) $
+  emptyTableau @2
+```
+
+### Large Tableau API (arbitrary qubits, BitVec-backed)
+
+```haskell
+import SymplecticCHP.BitVec
+import SymplecticCHP.LargeTableau
+
+-- Runtime-sized, works with any number of qubits
+largeCircuit :: Int -> LargeTableau
+largeCircuit n = 
+  largeApplyGate (LargeCNOT 0 1) $
+  largeApplyGate (LargeLocal (LargeHadamard 0)) $
+  largeEmpty n
+
+-- Simulate 1000-qubit circuit
+main = do
+  let tab0 = largeEmpty 1000
+  let tab1 = largeApplyGate (LargeLocal (LargeHadamard 0)) tab0
+  print $ largeIsValid tab1  -- True
+```
+
+### Feature Comparison
+
+| Feature | Standard `Tableau n` | `LargeTableau` |
+|---------|---------------------|----------------|
+| Max qubits | 64 (Word64) | Unlimited (BitVec) |
+| Storage | Unboxed Word64 | Chunked Vector Word64 |
+| Type safety | Compile-time n | Runtime n |
+| Performance | Optimal | Good (slight overhead) |
+| Best for | Small circuits, education | Large QEC codes |
+
 ## Quick Start
 
 ### Library Usage
